@@ -1,323 +1,294 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import type React from "react"
+import { useState } from "react"
+import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
+import { auth, db, googleProvider } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from "lucide-react"
-import { FcGoogle } from "react-icons/fc"
+import { Eye, EyeOff, Mail, Lock, User, CheckCircle, XCircle } from "lucide-react"
 
-// Clerk
-import { useSignUp, useSignIn, useUser } from "@clerk/clerk-react"
+interface ValidationState {
+  email: boolean
+  password: boolean
+  name: boolean
+}
 
-// Firebase
-import { getFirestore, doc, setDoc } from "firebase/firestore"
-import { auth, app } from "@/lib/firebase"
-
-export function AuthForm() {
-  const db = getFirestore(app)
-
+export default function AuthForm() {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [validation, setValidation] = useState<ValidationState>({
+    email: false,
+    password: false,
+    name: false,
+  })
 
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" })
-  const [signupForm, setSignupForm] = useState({ name: "", email: "", password: "", role: "beginner" })
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const validatePassword = (password: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/.test(password)
+  const validateName = (name: string) => name.trim().length >= 2
 
-  const { signUp, setActive } = useSignUp()
-  const { signIn } = useSignIn()
-  const { user } = useUser()
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    setError("")
+    if (field === "email") setValidation((prev) => ({ ...prev, email: validateEmail(value) }))
+    if (field === "password") setValidation((prev) => ({ ...prev, password: validatePassword(value) }))
+    if (field === "name") setValidation((prev) => ({ ...prev, name: validateName(value) }))
+  }
 
-  // ------------------- EMAIL/PASSWORD SIGNUP -------------------
-  const handleSignup = async (e: React.FormEvent) => {
+  const createUserDocument = async (user: any, additionalData = {}) => {
+    if (!user) return
+    const userRef = doc(db, "users", user.uid)
+    const userData = {
+      uid: user.uid,
+      displayName: user.displayName || formData.name,
+      email: user.email,
+      createdAt: new Date().toISOString(),
+      provider: user.providerData[0]?.providerId || "email",
+      roleType: ["student"],
+      role: ["beginner"],
+      ...additionalData,
+    }
+    try {
+      await setDoc(userRef, userData, { merge: true })
+    } catch (error) {
+      console.error("Error creating user document:", error)
+    }
+  }
+
+  const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setLoading(true)
     setError("")
-    setSuccess("")
+
+    if (!validation.name || !validation.email || !validation.password) {
+      setError("Please fill in all fields correctly")
+      setLoading(false)
+      return
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      setLoading(false)
+      return
+    }
 
     try {
-      if (!signupForm.name || !signupForm.email || !signupForm.password) {
-        setError("Please fill in all fields")
-        return
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+      await updateProfile(userCredential.user, { displayName: formData.name })
+      await createUserDocument(userCredential.user, { displayName: formData.name, roleType: ["student"] })
+      setSuccess("Account created successfully! Welcome aboard!")
+      setFormData({ name: "", email: "", password: "", confirmPassword: "" })
+      setValidation({ email: false, password: false, name: false })
+    } catch (error: any) {
+      console.error("Signup error:", error)
+      switch (error.code) {
+        case "auth/email-already-in-use":
+          setError("This email is already registered. Please use a different email or try logging in.")
+          break
+        case "auth/weak-password":
+          setError("Password is too weak. Please choose a stronger password.")
+          break
+        case "auth/invalid-email":
+          setError("Please enter a valid email address.")
+          break
+        case "auth/operation-not-allowed":
+          setError("Email/password accounts are not enabled. Please contact support.")
+          break
+        default:
+          setError("Failed to create account. Please try again.")
       }
-
-      if (!signUp || !signIn) {
-        throw new Error("Authentication service not available")
-      }
-
-      const clerkUser = await signUp.create({
-        emailAddress: signupForm.email,
-        password: signupForm.password,
-        firstName: signupForm.name,
-      })
-
-      // Set role in public metadata
-      await signUp.update({ publicMetadata: { role: signupForm.role } })
-      await signUp.prepareEmailAddressVerification()
-
-      // Save user to Firebase
-      const userId = clerkUser.createdUserId
-      if (userId) {
-        await setDoc(doc(db, "users", userId), {
-          name: signupForm.name,
-          email: signupForm.email,
-          role: signupForm.role,
-          createdAt: new Date(),
-        })
-      }
-
-      // Auto-login
-      const signInAttempt = await signIn.create({
-        identifier: signupForm.email,
-        password: signupForm.password,
-      })
-      await setActive({ session: signInAttempt.createdSessionId })
-
-      setSuccess(`Welcome, ${signupForm.name}! Redirecting...`)
-      setSignupForm({ name: "", email: "", password: "", role: "beginner" })
-      setTimeout(() => (window.location.href = "/choose-role"), 1500)
-    } catch (err: any) {
-      setError(err.errors?.[0]?.longMessage || err.message || "Signup failed")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  // ------------------- EMAIL/PASSWORD LOGIN -------------------
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleGoogleSignup = async () => {
+    setLoading(true)
     setError("")
-    setSuccess("")
-
     try {
-      if (!loginForm.email || !loginForm.password) {
-        setError("Please fill in all fields")
-        return
-      }
+      const result = await signInWithPopup(auth, googleProvider)
+      const user = result.user
+      if (!user) throw new Error("No user returned from Google.")
 
-      if (!signIn) {
-        throw new Error("SignIn service not available")
-      }
+      // Create Firestore document
+      await createUserDocument(user, { roleType: ["student"], role: ["beginner"] })
 
-      const signInAttempt = await signIn.create({
-        identifier: loginForm.email,
-        password: loginForm.password,
-      })
-      await setActive({ session: signInAttempt.createdSessionId })
-
-      setSuccess(`Welcome back, ${loginForm.email}! Redirecting...`)
-      setTimeout(() => (window.location.href = "/choose-role"), 1500)
-    } catch (err: any) {
-      setError(err.errors?.[0]?.longMessage || err.message || "Login failed")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // ------------------- GOOGLE SIGN-IN -------------------
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError("")
-    setSuccess("")
-
-    try {
-      await signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/choose-role",
-        redirectUrlComplete: "/choose-role",
-      })
-    } catch (err: any) {
-      setError(err.message || "Google Sign-In failed")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // ------------------- SAVE GOOGLE USERS TO FIREBASE -------------------
-  useEffect(() => {
-    const saveGoogleUser = async () => {
-      if (user && user.id) {
-        const userRef = doc(db, "users", user.id)
-        const docSnap = await (await import("firebase/firestore")).getDoc(userRef)
-        if (!docSnap.exists()) {
-          await setDoc(userRef, {
-            name: user.firstName || "",
-            email: user.primaryEmailAddress?.emailAddress || "",
-            role: "beginner",
-            createdAt: new Date(),
-          })
+      // Sync email/password in Firebase Auth
+      try {
+        // Generate a temporary strong password
+        const randomPassword = Math.random().toString(36).slice(-12) + "A1!"
+        await createUserWithEmailAndPassword(auth, user.email!, randomPassword)
+        console.log("Email/password account synced with Google OAuth.")
+      } catch (emailError: any) {
+        if (emailError.code === "auth/email-already-in-use") {
+          console.log("Email already exists. Skipping email/password creation.")
+        } else {
+          console.error("Error creating email/password account:", emailError)
         }
       }
+
+      setSuccess("Account created successfully with Google! Welcome aboard!")
+    } catch (error: any) {
+      console.error("Google signup full error:", error)
+      switch (error.code) {
+        case "auth/popup-closed-by-user":
+          setError("Sign-up was cancelled. Please try again.")
+          break
+        case "auth/popup-blocked":
+          setError("Popup was blocked. Please allow popups and try again.")
+          break
+        case "auth/account-exists-with-different-credential":
+          setError("An account already exists with this email using a different sign-in method.")
+          break
+        default:
+          setError(error.message || "Failed to sign up with Google. Please try again.")
+      }
+    } finally {
+      setLoading(false)
     }
-    saveGoogleUser()
-  }, [user, db])
+  }
 
-  // ------------------- JSX -------------------
   return (
-    <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold text-foreground">Join the Tech Revolution</CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Start learning, teaching, and building with fellow tech enthusiasts
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="signup" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="signup">Join Club</TabsTrigger>
-            <TabsTrigger value="login">Sign In</TabsTrigger>
-          </TabsList>
-
-          {(error || success) && (
-            <Alert className={`mb-4 ${success ? "border-primary bg-primary/10" : "border-destructive bg-destructive/10"}`}>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className={success ? "text-primary" : "text-destructive"}>
-                {error || success}
-              </AlertDescription>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-6 py-12">
+      <Card className="w-full max-w-2xl p-10 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border-0">
+        <CardHeader className="space-y-4 text-center">
+          <CardTitle className="text-4xl font-serif font-semibold text-gray-900 transition-colors duration-300">
+            Create Your Account
+          </CardTitle>
+          <CardDescription className="text-gray-600 text-base sm:text-lg max-w-xs mx-auto">
+            Join us with secure authentication and get your unique ID
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8 px-2">
+          {error && (
+            <Alert variant="destructive" className="border-destructive/20">
+              <XCircle className="h-5 w-5" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert className="border-green-200 bg-green-50 text-green-800">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
             </Alert>
           )}
 
-          {/* GOOGLE SIGN-IN */}
-          <div className="my-4 flex justify-center">
+          <form onSubmit={handleEmailSignup} className="space-y-6">
+            {/* Name, Email, Password, Confirm Password fields */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-lg">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                placeholder="John Doe"
+                className="transition-shadow duration-300 focus:shadow-md rounded-md focus:border-primary focus:outline-none text-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-lg">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                placeholder="example@gmail.com"
+                className="transition-shadow duration-300 focus:shadow-md rounded-md focus:border-primary focus:outline-none text-lg"
+              />
+            </div>
+            <div className="space-y-2 relative">
+              <Label htmlFor="password" className="text-lg">Password</Label>
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => handleInputChange("password", e.target.value)}
+                placeholder="Password"
+                className="transition-shadow duration-300 focus:shadow-md rounded-md focus:border-primary focus:outline-none text-lg"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-[42px] text-gray-500 hover:text-gray-700 transition-colors duration-300"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+              </button>
+            </div>
+            <div className="space-y-2 relative">
+              <Label htmlFor="confirmPassword" className="text-lg">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                placeholder="Confirm Password"
+                className="transition-shadow duration-300 focus:shadow-md rounded-md focus:border-primary focus:outline-none text-lg"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-[42px] text-gray-500 hover:text-gray-700 transition-colors duration-300"
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              >
+                {showConfirmPassword ? <EyeOff size={22} /> : <Eye size={22} />}
+              </button>
+            </div>
             <Button
-              variant="outline"
-              className="flex items-center space-x-2"
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
+              type="submit"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-4 rounded-md transition-colors duration-300 text-lg"
+              disabled={
+                loading ||
+                !validation.name ||
+                !validation.email ||
+                !validation.password ||
+                formData.password !== formData.confirmPassword
+              }
             >
-              <FcGoogle className="w-5 h-5" />
-              <span>Continue with Google</span>
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
+          </form>
+
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <span className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm uppercase text-gray-500 font-medium">
+              <span className="bg-white px-4">Or continue with</span>
+            </div>
           </div>
 
-          {/* SIGNUP FORM */}
-          <TabsContent value="signup">
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-name">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    className="pl-10"
-                    value={signupForm.name}
-                    onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-red-400 via-red-500 to-red-600 text-white font-semibold py-4 rounded-md shadow-md hover:from-red-500 hover:via-red-600 hover:to-red-700 transition-all duration-300"
+          >
+            {loading ? "Signing up..." : "Sign up with Google"}
+          </Button>
 
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    className="pl-10"
-                    value={signupForm.email}
-                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="signup-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    className="pl-10 pr-10"
-                    value={signupForm.password}
-                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Join the Club"}
-              </Button>
-            </form>
-          </TabsContent>
-
-          {/* LOGIN FORM */}
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="login-email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    className="pl-10"
-                    value={loginForm.email}
-                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="login-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="pl-10 pr-10"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                  </Button>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            New members start as Beginners. Admins can upgrade your role as you progress. By joining, you agree to our community guidelines.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="text-center text-base text-gray-700 mt-8">
+            Already have an account?{" "}
+            <a href="/login" className="text-primary hover:text-primary/80 font-medium transition-colors duration-300">
+              Sign in here
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

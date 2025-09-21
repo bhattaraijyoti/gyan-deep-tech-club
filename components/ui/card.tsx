@@ -90,3 +90,11 @@ export {
   CardDescription,
   CardContent,
 }
+
+export default Card;
+export const CardHeaderDefault = CardHeader;
+export const CardFooterDefault = CardFooter;
+export const CardTitleDefault = CardTitle;
+export const CardActionDefault = CardAction;
+export const CardDescriptionDefault = CardDescription;
+export const CardContentDefault = CardContent;

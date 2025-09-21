@@ -1,4 +1,4 @@
-import { Navigation } from "@/components/navigation"
+import { Navigation } from "@/components/Navigation/navigation"
 import { HeroSection } from "@/components/hero-section"
 
 export default function HomePage() {

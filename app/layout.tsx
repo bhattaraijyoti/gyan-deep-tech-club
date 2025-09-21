@@ -7,9 +7,7 @@ import { Suspense } from "react"
 import { Footer } from "@/components/footer"
 import "./globals.css"
 
-// Clerk imports
-import { ClerkProvider } from "@clerk/nextjs"
-import {Navigation} from "@/components/navigation"
+import ConditionalNavigation from "@/components/Navigation/ConditionalNavigation"
 
 export const metadata: Metadata = {
   title: "Gyan Deep Tech Club - Future of Learning",
@@ -23,17 +21,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
-          <Navigation />
-          <Suspense fallback={<div className="text-center mt-20">Loading...</div>}>
-            {children}
-          </Suspense>
-          <Footer />
-          <Analytics />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`}>
+        <Suspense fallback={<div className="text-center mt-20">Loading...</div>}>
+          <ConditionalNavigation />
+          {children}
+        </Suspense>
+        <Footer />
+        <Analytics />
+      </body>
+    </html>
   )
 }

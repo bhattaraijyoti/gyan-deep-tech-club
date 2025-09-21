@@ -1,4 +1,4 @@
-import { Navigation } from "@/components/navigation"
+import { Navigation } from "@/components/Navigation/navigation"
 import { Card } from "@/components/ui/card"
 import { BookOpen, Users, Wrench, Star } from "lucide-react"
 
