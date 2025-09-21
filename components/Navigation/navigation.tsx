@@ -75,13 +75,7 @@ export function Navigation() {
             >
               About
             </Link>
-            <Link
-              href="/courses"
-              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
-              onClick={() => setIsOpen(false)}
-            >
-              Courses
-            </Link>
+          
             <Link
               href="/resources"
               className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
