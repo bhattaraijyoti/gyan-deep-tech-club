@@ -32,12 +32,17 @@ export function Navigation() {
             >
               About
             </Link>
-           
             <Link
-              href="/events"
+              href="/resources"
               className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
             >
-              Events
+              Resources
+            </Link>
+            <Link
+              href="/contact"
+              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+            >
+              Contact
             </Link>
             <Button
               asChild
@@ -45,7 +50,6 @@ export function Navigation() {
             >
               <Link href="/join">Join Club</Link>
             </Button>
-           
           </div>
 
           <div className="md:hidden">
@@ -79,11 +83,18 @@ export function Navigation() {
               Courses
             </Link>
             <Link
-              href="/events"
+              href="/resources"
               className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
               onClick={() => setIsOpen(false)}
             >
-              Events
+              Resources
+            </Link>
+            <Link
+              href="/contact"
+              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              onClick={() => setIsOpen(false)}
+            >
+              Contact
             </Link>
             <Button
               asChild
@@ -93,7 +104,6 @@ export function Navigation() {
                 Join Club
               </Link>
             </Button>
-          
           </div>
         )}
       </div>

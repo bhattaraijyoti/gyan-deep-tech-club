@@ -7,7 +7,9 @@ import { signInWithPopup } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
 import { auth, db, googleProvider } from "@/lib/firebase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, Chrome, Code2, XCircle } from "lucide-react"
+import { Button } from "react-day-picker"
+import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "../ui/card"
 
 export default function AuthForm() {
   const [loading, setLoading] = useState(false)
@@ -85,44 +87,34 @@ export default function AuthForm() {
   }
 
   return (
-    <main
-      className="flex items-center justify-center min-h-screen px-6 py-12"
-      style={{ background: "linear-gradient(135deg, #0891b2, #10b981)" }}
-    >
-      <div className="w-full max-w-md p-10 bg-white bg-opacity-60 backdrop-blur-md rounded-3xl shadow-lg border border-white/30">
-        {user && user.photoURL && (
-          <img
-            src={user.photoURL}
-            alt="Profile Picture"
-            className="mx-auto mb-6 w-24 h-24 rounded-full object-cover"
-          />
-        )}
-        <h1 className="text-4xl font-extrabold font-serif text-center bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-transparent mb-10 select-none">
-          Login to Your Account
-        </h1>
-
-        {error && (
-          <Alert variant="destructive" className="border-destructive/20 mb-6">
-            <XCircle className="h-5 w-5" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {success && (
-          <Alert className="border-green-300 bg-green-50 text-green-900 mb-6">
-            <CheckCircle className="h-5 w-5 text-green-700" />
-            <AlertDescription className="text-green-900">{success}</AlertDescription>
-          </Alert>
-        )}
-
-        <button
-          type="button"
-          onClick={handleGoogleSignup}
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-cyan-500 via-teal-600 to-emerald-600 text-white font-semibold py-4 rounded-2xl shadow-md hover:from-cyan-600 hover:via-teal-700 hover:to-emerald-700 transition-transform duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Signing up..." : "Continue with Google"}
-        </button>
-      </div>
-    </main>
+    <div className="min-h-screen flex items-center justify-center ">
+      <Card className="w-full max-w-md bg-white bg-opacity-90 shadow-2xl rounded-3xl p-8 sm:p-10">
+        <CardHeader className="text-center mb-8">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 hover-glow mx-auto">
+            <Code2 className="w-7 h-7 text-white" />
+          </div>
+          <CardTitle className="text-3xl font-extrabold text-gray-900 mb-2 leading-tight tracking-tight">
+            Welcome to Tech Club
+          </CardTitle>
+          <CardDescription className="text-gray-600 text-base sm:text-lg max-w-xs mx-auto px-4">
+            Sign in with your Google account to access exclusive resources and tools
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 rounded-xl bg-[#26667F] text-white font-semibold shadow-md hover:bg-[#3A8AA3] transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed py-3 text-lg cursor-pointer"
+            size="lg"
+          >
+            <Chrome className="h-6 w-6" />
+            {loading ? "Signing in..." : "Continue with Google"}
+          </Button>
+          <p className="text-xs sm:text-sm text-gray-10 text-center mt-6 max-w-xs mx-auto px-6 select-none">
+            By signing in, you agree to our <a href="/terms" className="underline hover:text-black font-bold">terms of service</a> and <a href="/privacy" className="underline hover:text-black font-bold">privacy policy</a>.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
