@@ -21,17 +21,18 @@ export function Navigation() {
 
           <div className="hidden md:flex items-center space-x-8">
             <Link
+              href="/"
+              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+            >
+              Home
+            </Link>
+            <Link
               href="/about"
               className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
             >
               About
             </Link>
-            <Link
-              href="/courses"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
-            >
-              Courses
-            </Link>
+           
             <Link
               href="/events"
               className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
@@ -56,6 +57,13 @@ export function Navigation() {
 
         {isOpen && (
           <div className="md:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
+            <Link
+              href="/"
+              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              onClick={() => setIsOpen(false)}
+            >
+              Home
+            </Link>
             <Link
               href="/about"
               className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"

@@ -7,10 +7,10 @@ import { Code, Mail, Phone, MapPin, Github, Twitter, Linkedin, Instagram } from 
 
 export function Footer() {
   return (
-    <footer className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden">
+    <footer className="relative  text-white overflow-hidden">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0.6),transparent)]" />
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10" />
+      <div className="absolute inset-0 " />
+      <div className="absolute inset-0 " />
 
       {/* Floating Elements */}
       <div className="absolute top-10 left-10 w-20 h-20 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
@@ -76,9 +76,9 @@ export function Footer() {
             <h4 className="text-lg font-semibold text-white">Learning Paths</h4>
             <nav className="space-y-3">
               {[
-                { name: "Beginner Track", href: "/courses/beginner" },
-                { name: "Intermediate Track", href: "/courses/intermediate" },
-                { name: "Advanced Track", href: "/courses/advanced" },
+                { name: "Beginner Track", href: "/dashboard/beginner" },
+                { name: "Intermediate Track", href: "/dashboard/intermediate" },
+                { name: "Advanced Track", href: "/dashboard/advanced" },
                 { name: "Study Groups", href: "/chats/general" },
                 { name: "Mentorship", href: "/mentorship" },
               ].map((link) => (

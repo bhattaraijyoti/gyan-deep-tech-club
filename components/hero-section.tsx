@@ -51,7 +51,7 @@ export function HeroSection() {
               asChild
               variant="outline"
               size="lg"
-              className="px-10 py-4 text-lg rounded-2xl glass border-primary/30 hover:bg-primary/5 hover-lift transition-all duration-300 bg-transparent"
+              className="px-10 py-4 text-lg rounded-2xl glass border-primary/30 hover:bg-primary/5 hover:text-black hover-lift transition-all duration-300 bg-transparent"
             >
               <Link href="/courses">Browse Courses</Link>
             </Button>

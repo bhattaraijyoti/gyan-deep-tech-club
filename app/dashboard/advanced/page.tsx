@@ -1,8 +1,8 @@
-import { AuthGuard } from "@/components/auth/auth-guard"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { CourseList } from "@/components/dashboard/course-list"
 import { ProgressOverview } from "@/components/dashboard/progress-overview"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
+import { AuthGuard } from "@/components/auth/auth-guard"
 
 export default function AdvancedDashboard() {
   return (

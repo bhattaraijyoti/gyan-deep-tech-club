@@ -53,5 +53,5 @@ export default function ProfilePage() {
   if (loading) return <p>Loading...</p>;
   if (!firebaseUser) return <p>User not found</p>;
 
-  return role === "admin" ? <AdminProfile /> : <UserProfile />;
+  return role === "admin" ? <AdminProfile /> : <UserProfile user={firebaseUser} />;
 }

@@ -7,7 +7,7 @@ import Link from "next/link"
 export default function UnauthorizedPage() {
   return (
     <main className="min-h-screen bg-background">
-      <Navigation />
+  
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4">
         <Card className="w-full max-w-md text-center bg-card/50 backdrop-blur-sm">
           <CardHeader>

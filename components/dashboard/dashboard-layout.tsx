@@ -20,6 +20,8 @@ import {
   Users,
   BarChart3,
   Sparkles,
+  MoveLeftIcon,
+  MoveRightIcon,
 } from "lucide-react"
 
 interface DashboardLayoutProps {
@@ -68,22 +70,16 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const navigation = getNavigation(role)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex">
+      {/* Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-white/20 dark:border-slate-700/50 shadow-2xl transform transition-all duration-500 ease-out lg:translate-x-0
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-      `}
+          fixed inset-y-0 left-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-white/20 dark:border-slate-700/50 shadow-2xl transform transition-all duration-500 ease-out flex flex-col
+          ${sidebarOpen ? "w-72" : "w-16"}
+        `}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-6 border-b border-white/10 dark:border-slate-700/50">
+        <div className="flex items-center justify-between p-6 border-b border-white/10 dark:border-slate-700/50">
+          {sidebarOpen ? (
             <Link href="/" className="flex items-center space-x-3 group">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg shadow-purple-500/25">
                 <Code className="w-6 h-6 text-white" />
@@ -95,52 +91,41 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Tech Club</p>
               </div>
             </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          <div className="p-6 border-b border-white/10 dark:border-slate-700/50">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Avatar className="w-12 h-12 ring-2 ring-white/20 dark:ring-slate-700/50">
-                  <AvatarImage src="/student-avatar.png" />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold">
-                    {role === "admin" ? "AD" : "JD"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  {role === "admin" ? "Admin User" : "John Doe"}
-                </p>
-                <Badge className={`text-xs font-medium ${getRoleBadgeColor(role)} border-0`}>
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                </Badge>
-              </div>
+          ) : (
+            <div className="w-12 h-12 flex items-center justify-center">
+              <Code className="w-6 h-6 text-white" />
             </div>
-          </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {sidebarOpen ? <MoveLeftIcon className="w-5 h-5" /> : <MoveRightIcon className="w-5 h-5" />}
+          </Button>
+        </div>
 
-          <nav className="flex-1 p-6 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white hover:shadow-lg hover:scale-105 transition-all duration-300 group"
-              >
-                <item.icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
-                <span className="text-sm font-medium">{item.name}</span>
-              </Link>
-            ))}
-          </nav>
+       
 
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`
+                flex items-center space-x-3 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white hover:shadow-lg hover:scale-105 transition-all duration-300 group
+                ${sidebarOpen ? "px-4 py-3" : "px-3 py-3 justify-center"}
+              `}
+            >
+              <item.icon className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+              {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
+            </Link>
+          ))}
+        </nav>
+
+        {sidebarOpen && (
           <div className="p-6 border-t border-white/10 dark:border-slate-700/50">
             <Button
               variant="ghost"
@@ -153,31 +138,38 @@ export function DashboardLayout({ children, role }: DashboardLayoutProps) {
               Sign Out
             </Button>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50 shadow-sm">
-          <div className="flex items-center justify-between px-6 py-4">
+      {/* Main content */}
+      <div
+        className={`flex-1 transition-all duration-500 ease-out ${
+          sidebarOpen ? "lg:pl-[18rem]" : "lg:pl-16"
+        }`}
+      >
+        <header className="sticky top-0 z-30 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50 shadow-sm flex items-center justify-between px-6 py-4">
+          {/* On large screens, hide the sidebar toggle button here */}
+          <div className="lg:hidden">
             <Button
               variant="ghost"
               size="sm"
-              className="lg:hidden text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50"
-              onClick={() => setSidebarOpen(true)}
+              className="text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
-              <Menu className="w-5 h-5" />
+              {sidebarOpen ? <MoveLeftIcon className="w-5 h-5" /> : <MoveRightIcon className="w-5 h-5" />}
             </Button>
+          </div>
 
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50 relative"
-              >
-                <Bell className="w-5 h-5" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              </Button>
-            </div>
+          <div className="flex items-center space-x-4 ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-600 dark:text-slate-300 hover:bg-white/20 dark:hover:bg-slate-800/50 relative"
+            >
+              <Bell className="w-5 h-5" />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+            </Button>
           </div>
         </header>
 

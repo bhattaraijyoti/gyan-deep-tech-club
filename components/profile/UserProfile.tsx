@@ -40,7 +40,7 @@ export default function UserProfile({ user }: UserProfileProps) {
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      router.push("/login");
+      router.push("/join");
     } catch (error) {
       console.error("Error signing out:", error);
     }

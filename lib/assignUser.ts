@@ -9,7 +9,7 @@ const db = getFirestore(app);
  * @param email - user email
  * @param displayName - user display name
  * @param provider - auth provider (e.g., "google.com")
- * @param roles - optional array of progress roles, defaults to ["beginner"]
+ * @param roles - array of progress roles, must be provided by the student
  * @param roleType - "student" or "admin", defaults to "student"
  */
 export async function createUserDoc(
@@ -17,9 +17,13 @@ export async function createUserDoc(
   email: string,
   displayName: string,
   provider: string,
-  roles: Array<"beginner" | "intermediate" | "advanced"> = ["beginner"],
+  roles: Array<"beginner" | "intermediate" | "advanced">,
   roleType: "student" | "admin" = "student"
 ): Promise<void> {
+  if (!roles || roles.length === 0) {
+    throw new Error("You must provide at least one role for the student");
+  }
+
   const userRef = doc(db, "users", uid);
   await setDoc(
     userRef,

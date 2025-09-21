@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { signInWithPopup } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
 import { auth, db, googleProvider } from "@/lib/firebase"
@@ -12,7 +13,20 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
 
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      if (currentUser) {
+        // If already signed in, redirect to dashboard
+        router.push("/dashboard")
+      }
+    })
+    return () => unsubscribe()
+  }, [router])
+
+  // Create Firestore document for the user without default role
   const createUserDocument = async (user: any, additionalData = {}) => {
     if (!user) return
     const userRef = doc(db, "users", user.uid)
@@ -20,10 +34,11 @@ export default function AuthForm() {
       uid: user.uid,
       displayName: user.displayName || "",
       email: user.email,
+      photoURL: user.photoURL || "",
       createdAt: new Date().toISOString(),
       provider: user.providerData[0]?.providerId || "google",
-      roleType: ["student"],
-      role: ["beginner"],
+      roleType: ["student"], // user type is student
+      role: [], // no default role; user chooses later
       ...additionalData,
     }
     try {
@@ -42,10 +57,13 @@ export default function AuthForm() {
       const user = result.user
       if (!user) throw new Error("No user returned from Google.")
 
+      setUser(user)
+
       // Create Firestore document
-      await createUserDocument(user, { roleType: ["student"], role: ["beginner"] })
+      await createUserDocument(user, { roleType: ["student"] })
 
       setSuccess("Account created successfully with Google! Welcome aboard!")
+      router.push("/choose-role") // redirect to choose-role page
     } catch (error: any) {
       console.error("Google signup full error:", error)
       switch (error.code) {
@@ -69,9 +87,16 @@ export default function AuthForm() {
   return (
     <main
       className="flex items-center justify-center min-h-screen px-6 py-12"
-      style={{ background: "linear-gradient(135deg, #0891b2, )" }}
+      style={{ background: "linear-gradient(135deg, #0891b2, #10b981)" }}
     >
       <div className="w-full max-w-md p-10 bg-white bg-opacity-60 backdrop-blur-md rounded-3xl shadow-lg border border-white/30">
+        {user && user.photoURL && (
+          <img
+            src={user.photoURL}
+            alt="Profile Picture"
+            className="mx-auto mb-6 w-24 h-24 rounded-full object-cover"
+          />
+        )}
         <h1 className="text-4xl font-extrabold font-serif text-center bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 bg-clip-text text-transparent mb-10 select-none">
           Login to Your Account
         </h1>

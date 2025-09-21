@@ -15,12 +15,13 @@ export interface FirestoreUser {
   provider?: string;
   createdAt: Date;
   roleType: RoleType;
-  role: ProgressLevel[];
+  role: ProgressLevel[]; // array of chosen roles
   progress?: Record<string, any>; // track progress for courses/lessons
 }
 
 /**
  * Create a Firestore user if it doesn't exist
+ * role array is empty by default so student can choose later
  */
 export async function createUserIfNotExist(uid: string, email?: string, displayName?: string, provider?: string) {
   const userRef = db.collection("users").doc(uid);
@@ -34,7 +35,7 @@ export async function createUserIfNotExist(uid: string, email?: string, displayN
       provider,
       createdAt: new Date(),
       roleType: "student",
-      role: ["beginner"],
+      role: [], // no default role
       progress: {},
     };
     await userRef.set(newUser);
@@ -66,7 +67,7 @@ export async function getUser(uid: string) {
 }
 
 /**
- * Example: Set a user’s progress level array
+ * Set a user’s progress level array (replace with chosen roles)
  */
 export async function setUserRole(uid: string, role: ProgressLevel[]) {
   await updateUser(uid, { role });
