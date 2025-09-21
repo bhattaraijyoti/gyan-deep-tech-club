@@ -75,7 +75,7 @@ function FAQItem({
       </button>
       <div
         className={`overflow-hidden text-gray-700 transition-all duration-500 ease-in-out ${
-          isOpen ? "max-h-96 mt-5 opacity-100" : "max-h-0 opacity-0"
+          isOpen ? "max-h-96  opacity-100" : "max-h-0 opacity-0"
         }`}
       >
         <p className="pl-1 pr-2">
