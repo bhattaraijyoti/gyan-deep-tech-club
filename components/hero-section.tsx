@@ -1,119 +1,171 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Users, Sparkles, Rocket, Brain } from "lucide-react"
+import { ArrowRight, Code, Palette, Zap } from "lucide-react"
 import Link from "next/link"
+import { motion } from "framer-motion"
+
+// Animation for each letter
+const textVariant = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.08,
+      duration: 0.4,
+      ease: "easeOut",
+    },
+  }),
+}
 
 export function HeroSection() {
+  const heading1 = "Learn Tech."
+  const heading2 = "Build Future."
+
   return (
-    <section className="relative py-24 lg:py-40 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-muted/20 to-primary/5" />
-
-      {/* Floating elements */}
-      <div className="floating-element floating-element-1">
-        <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 animate-float" />
-      </div>
-      <div className="floating-element floating-element-2">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-secondary/20 to-primary/20 animate-float" />
-      </div>
-      <div className="floating-element floating-element-3">
-        <div className="w-40 h-40 rounded-full bg-gradient-to-br from-primary/10 to-secondary/10 animate-float" />
+    <section className="relative bg-gradient-to-b from-background to-muted min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-primary/3 to-accent/3 rounded-full blur-3xl opacity-30"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center space-y-12 animate-fade-in-up">
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Navbar */}
+        <nav className="absolute top-8 left-0 right-0 flex justify-between items-center">
+          <div className="text-sm font-mono text-muted-foreground">Gyan Deep</div>
+        </nav>
+
+        {/* Hero Content */}
+        <div className="text-center space-y-16 pt-24">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-primary/20 mb-6 animate-scale-in">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Welcome to the Future of Learning</span>
+            <div className="relative">
+              <h2 className="text-5xl sm:text-6xl lg:text-8xl font-bold text-balance leading-tight drop-shadow-lg">
+                {/* First line animation */}
+                {heading1.split("").map((char, i) => (
+                  <motion.span
+                    key={i}
+                    custom={i}
+                    variants={textVariant}
+                    initial="hidden"
+                    animate="visible"
+                    className="inline-block text-foreground"
+                  >
+                    {char === " " ? "\u00A0" : char}
+                  </motion.span>
+                ))}
+                <br />
+                {/* Second line animation */}
+                {heading2.split("").map((char, i) => (
+                  <motion.span
+                    key={i}
+                    custom={i}
+                    variants={textVariant}
+                    initial="hidden"
+                    animate="visible"
+                    className="inline-block gradient-text"
+                  >
+                    {char === " " ? "\u00A0" : char}
+                  </motion.span>
+                ))}
+              </h2>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl lg:text-8xl font-bold text-balance leading-tight">
-              <span className="text-foreground">Learn Tech.</span> <span className="gradient-text">Build Future.</span>
-            </h1>
+            <div className="max-w-2xl mx-auto space-y-6">
+              <p className="text-xl text-muted-foreground text-pretty leading-relaxed drop-shadow-sm">
+                {
+                  "Where curious minds converge to explore the intersection of technology and creativity. We don't just teach code—we cultivate digital artisans."
+                }
+              </p>
 
-            <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto text-pretty leading-relaxed">
-              Join Gyan Deep Tech Club where students learn, collaborate, and grow together in technology. From your
-              first line of code to advanced AI projects.
-            </p>
+              <div className="flex items-center justify-center gap-8 text-sm font-mono text-muted-foreground">
+                <span>Learn</span>
+                <div className="w-8 h-px bg-border"></div>
+                <span>Create</span>
+                <div className="w-8 h-px bg-border"></div>
+                <span>Inspire</span>
+              </div>
+            </div>
           </div>
 
+          {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Button
               asChild
               size="lg"
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white px-10 py-4 text-lg rounded-2xl hover-lift hover-glow transition-all duration-300"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-4 text-base font-medium rounded-lg transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
             >
               <Link href="/join">
-                Get Started
-                <ArrowRight className="w-6 h-6 ml-2" />
+                Join the Collective
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
             <Button
               asChild
               variant="outline"
               size="lg"
-              className="px-10 py-4 text-lg rounded-2xl glass border-primary/30 hover:bg-primary/5 hover:text-black hover-lift transition-all duration-300 bg-transparent"
+              className="px-8 py-4 text-base font-medium rounded-lg border-border hover:bg-accent/10  transition-all duration-300 hover:border-accent bg-transparent shadow-lg hover:shadow-xl hover:text-black"
             >
-              <Link href="/resources">Browse Resources</Link>
+              <Link href="/resources" title="Explore curated learning materials and tools">View Resources</Link>
             </Button>
           </div>
         </div>
 
-        <div
-          className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 animate-fade-in-up"
-          style={{ animationDelay: "0.3s" }}
-        >
-          <div className="text-center space-y-6 p-8 rounded-3xl glass hover-lift hover-glow transition-all duration-500 group">
-            <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
-              <Users className="w-10 h-10 text-primary" />
+        {/* Feature Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-32 pt-16 border-t border-border">
+          <div className="text-center space-y-6 group transition-transform duration-300 hover:scale-105 hover:shadow-lg">
+            <div className="w-16 h-16 bg-card border border-border rounded-2xl flex items-center justify-center mx-auto group-hover:border-primary shadow-md hover:shadow-xl transition-shadow duration-300">
+              <Code className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-2xl font-bold text-foreground">Peer Learning</h3>
-            <p className="text-muted-foreground text-lg leading-relaxed">
-              Learn from and teach fellow students in our collaborative environment with real-time support
-            </p>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-foreground hover:text-primary transition-colors duration-300">
+                Craft & Logic
+              </h3>
+              <p className="text-muted-foreground leading-relaxed text-pretty">
+                {
+                  "Master the art of clean code through hands-on projects that challenge both your technical skills and creative thinking."
+                }
+              </p>
+            </div>
           </div>
 
-          <div className="text-center space-y-6 p-8 rounded-3xl glass hover-lift hover-glow transition-all duration-500 group">
-            <div className="w-20 h-20 bg-gradient-to-br from-secondary/20 to-primary/20 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
-              <Brain className="w-10 h-10 text-secondary" />
+          <div className="text-center space-y-6 group transition-transform duration-300 hover:scale-105 hover:shadow-lg">
+            <div className="w-16 h-16 bg-card border border-border rounded-2xl flex items-center justify-center mx-auto group-hover:border-accent shadow-md hover:shadow-xl transition-shadow duration-300">
+              <Palette className="w-8 h-8 text-accent" />
             </div>
-            <h3 className="text-2xl font-bold text-foreground">Smart Progression</h3>
-            <p className="text-muted-foreground text-lg leading-relaxed">
-              AI-powered learning paths that adapt to your pace through beginner, intermediate, and advanced levels
-            </p>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-foreground hover:text-primary transition-colors duration-300">
+                Design Thinking
+              </h3>
+              <p className="text-muted-foreground leading-relaxed text-pretty">
+                {
+                  "Blend aesthetic sensibility with functional design. Learn to create experiences that are both beautiful and purposeful."
+                }
+              </p>
+            </div>
           </div>
 
-          <div className="text-center space-y-6 p-8 rounded-3xl glass hover-lift hover-glow transition-all duration-500 group">
-            <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
-              <Rocket className="w-10 h-10 text-primary" />
+          <div className="text-center space-y-6 group transition-transform duration-300 hover:scale-105 hover:shadow-lg">
+            <div className="w-16 h-16 bg-card border border-border rounded-2xl flex items-center justify-center mx-auto group-hover:border-chart-4 shadow-md hover:shadow-xl transition-shadow duration-300">
+              <Zap className="w-8 h-8 text-chart-4" />
             </div>
-            <h3 className="text-2xl font-bold text-foreground">Real Projects</h3>
-            <p className="text-muted-foreground text-lg leading-relaxed">
-              Build production-ready applications and gain hands-on experience with cutting-edge technology
-            </p>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-foreground hover:text-primary transition-colors duration-300">
+                Innovation Lab
+              </h3>
+              <p className="text-muted-foreground leading-relaxed text-pretty">
+                {
+                  "Experiment with emerging technologies and push boundaries. From AI to web3, explore what's next in digital creation."
+                }
+              </p>
+            </div>
           </div>
         </div>
 
-        <div
-          className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-24 animate-fade-in-up"
-          style={{ animationDelay: "0.5s" }}
-        >
-          <div className="text-center space-y-2">
-            <div className="text-4xl font-bold gradient-text">500+</div>
-            <div className="text-muted-foreground">Active Students</div>
-          </div>
-          <div className="text-center space-y-2">
-            <div className="text-4xl font-bold gradient-text">50+</div>
-            <div className="text-muted-foreground">Courses</div>
-          </div>
-          <div className="text-center space-y-2">
-            <div className="text-4xl font-bold gradient-text">95%</div>
-            <div className="text-muted-foreground">Success Rate</div>
-          </div>
-          <div className="text-center space-y-2">
-            <div className="text-4xl font-bold gradient-text">24/7</div>
-            <div className="text-muted-foreground">Support</div>
-          </div>
-        </div>
+        <br />
+        <br />
       </div>
     </section>
   )
