@@ -3,17 +3,17 @@
 import type React from "react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { auth, db } from "@/lib/firebase"
+import { auth, firestore } from "@/lib/firebase"
 import { doc, getDoc } from "firebase/firestore"
 
 interface AuthGuardProps {
   children: React.ReactNode
-  requiredRole?: "beginner" | "intermediate" | "advanced" | "admin"
+  requiredRole?: "admin"
 }
 
 export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
   const [userId, setUserId] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const [userRoleTypes, setUserRoleTypes] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -26,28 +26,20 @@ export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
       setUserId(user.uid)
 
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid))
+        const userDoc = await getDoc(doc(firestore, "users", user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data()
-          let role: string | null = null
+          let roleTypes: string[] = []
 
-          if (Array.isArray(data.role) && data.role.length > 0) {
-            role = data.role[0]
-          } else if (typeof data.role === "string") {
-            role = data.role
-          } else {
-            role = "beginner"
+          if (Array.isArray(data.roleType) && data.roleType.length > 0) {
+            roleTypes = data.roleType
           }
 
-          setUserRole(role)
+          setUserRoleTypes(roleTypes)
 
           if (
             requiredRole &&
-            !(
-              (Array.isArray(data.role) && data.role.includes(requiredRole)) ||
-              role === requiredRole ||
-              role === "admin"
-            )
+            !roleTypes.includes("admin")
           ) {
             router.push("/unauthorized")
           }
@@ -66,7 +58,7 @@ export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
     return () => unsubscribe()
   }, [requiredRole, router])
 
-  if (loading || !userId || !userRole) {
+  if (loading || !userId || !userRoleTypes) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">

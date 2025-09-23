@@ -1,15 +1,12 @@
-import { getFirestore, doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { app } from "./firebase";
-
-const db = getFirestore(app);
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "./firebase";
 
 /**
- * Creates or updates a user document in Firestore with roles as an array of progress levels and a roleType.
+ * Creates or updates a user document in Firestore with a roleType.
  * @param uid - Firebase user UID
  * @param email - user email
  * @param displayName - user display name
  * @param provider - auth provider (e.g., "google.com")
- * @param roles - array of progress roles, must be provided by the student
  * @param roleType - "student" or "admin", defaults to "student"
  */
 export async function createUserDoc(
@@ -17,25 +14,23 @@ export async function createUserDoc(
   email: string,
   displayName: string,
   provider: string,
-  roles: Array<"beginner" | "intermediate" | "advanced">,
   roleType: "student" | "admin" = "student"
 ): Promise<void> {
-  if (!roles || roles.length === 0) {
-    throw new Error("You must provide at least one role for the student");
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(
+      userRef,
+      {
+        email,
+        displayName,
+        provider,
+        roleType,
+        createdAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    console.log("✅ Firestore user doc created/updated");
+  } catch (error) {
+    console.error("❌ Error creating Firestore user doc:", error);
   }
-
-  const userRef = doc(db, "users", uid);
-  await setDoc(
-    userRef,
-    {
-      email,
-      displayName,
-      provider,
-      role: roles,
-      roleType,
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-  console.log("✅ Firestore user doc created/updated");
 }

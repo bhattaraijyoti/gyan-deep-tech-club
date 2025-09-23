@@ -34,9 +34,7 @@ export function HeroSection() {
 
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Navbar */}
-        <nav className="absolute top-8 left-0 right-0 flex justify-between items-center">
-          <div className="text-sm font-mono text-muted-foreground">Gyan Deep</div>
-        </nav>
+      
 
         {/* Hero Content */}
         <div className="text-center space-y-16 pt-24">

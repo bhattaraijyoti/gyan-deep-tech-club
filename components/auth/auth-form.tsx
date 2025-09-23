@@ -65,7 +65,7 @@ export default function AuthForm() {
       await createUserDocument(user, { roleType: ["student"] })
 
       setSuccess("Account created successfully with Google! Welcome aboard!")
-      router.push("/choose-role") // redirect to choose-role page
+      router.push("/dashboard") // redirect to choose-role page
     } catch (error: any) {
       console.error("Google signup full error:", error)
       switch (error.code) {

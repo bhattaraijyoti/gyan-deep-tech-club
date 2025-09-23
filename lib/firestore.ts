@@ -1,9 +1,6 @@
 // lib/firestore.ts
-import { adminDb } from "./firebase-admin"; // Firestore instance from Firebase Admin
-const db = adminDb;
-
-// Default progress levels
-export type ProgressLevel = "beginner" | "intermediate" | "advanced";
+import { firestore } from "@/lib/firebase"; // Firestore instance from client SDK
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // Role types
 export type RoleType = "student" | "admin";
@@ -14,36 +11,31 @@ export interface FirestoreUser {
   displayName?: string;
   provider?: string;
   createdAt: Date;
-  roleType: RoleType;
-  role: ProgressLevel[]; // array of chosen roles
-  progress?: Record<string, any>; // track progress for courses/lessons
+  roleType: RoleType[];
 }
 
 /**
  * Create a Firestore user if it doesn't exist
- * role array is empty by default so student can choose later
  */
 export async function createUserIfNotExist(uid: string, email?: string, displayName?: string, provider?: string) {
-  const userRef = db.collection("users").doc(uid);
-  const doc = await userRef.get();
+  const userRef = doc(firestore, "users", uid);
+  const docSnap = await getDoc(userRef);
 
-  if (!doc.exists) {
+  if (!docSnap.exists()) {
     const newUser: FirestoreUser = {
       uid,
       email,
       displayName,
       provider,
       createdAt: new Date(),
-      roleType: "student",
-      role: [], // no default role
-      progress: {},
+      roleType: ["student"],
     };
-    await userRef.set(newUser);
+    await setDoc(userRef, newUser);
     console.log(`Firestore user ${uid} created`);
     return newUser;
   } else {
     console.log(`Firestore user ${uid} already exists`);
-    return doc.data() as FirestoreUser;
+    return docSnap.data() as FirestoreUser;
   }
 }
 
@@ -51,8 +43,8 @@ export async function createUserIfNotExist(uid: string, email?: string, displayN
  * Update a Firestore user (fields will merge with existing data)
  */
 export async function updateUser(uid: string, data: Partial<FirestoreUser>) {
-  const userRef = db.collection("users").doc(uid);
-  await userRef.set(data, { merge: true });
+  const userRef = doc(firestore, "users", uid);
+  await setDoc(userRef, data, { merge: true });
   console.log(`Firestore user ${uid} updated`);
 }
 
@@ -60,49 +52,8 @@ export async function updateUser(uid: string, data: Partial<FirestoreUser>) {
  * Get a Firestore user by UID
  */
 export async function getUser(uid: string) {
-  const userRef = db.collection("users").doc(uid);
-  const doc = await userRef.get();
-  if (!doc.exists) return null;
-  return doc.data() as FirestoreUser;
-}
-
-/**
- * Set a user’s progress level array (replace with chosen roles)
- */
-export async function setUserRole(uid: string, role: ProgressLevel[]) {
-  await updateUser(uid, { role });
-}
-
-/**
- * Add a progress level to the user's progress level array if it doesn't exist
- */
-export async function addUserRole(uid: string, role: ProgressLevel) {
-  const user = await getUser(uid);
-  if (!user) {
-    throw new Error(`User ${uid} not found`);
-  }
-  if (!user.role.includes(role)) {
-    const updatedRoles = [...user.role, role];
-    await updateUser(uid, { role: updatedRoles });
-    console.log(`Role ${role} added to user ${uid}`);
-  } else {
-    console.log(`User ${uid} already has role ${role}`);
-  }
-}
-
-/**
- * Remove a progress level from the user's progress level array if it exists
- */
-export async function removeUserRole(uid: string, role: ProgressLevel) {
-  const user = await getUser(uid);
-  if (!user) {
-    throw new Error(`User ${uid} not found`);
-  }
-  if (user.role.includes(role)) {
-    const updatedRoles = user.role.filter(r => r !== role);
-    await updateUser(uid, { role: updatedRoles });
-    console.log(`Role ${role} removed from user ${uid}`);
-  } else {
-    console.log(`User ${uid} does not have role ${role}`);
-  }
+  const userRef = doc(firestore, "users", uid);
+  const docSnap = await getDoc(userRef);
+  if (!docSnap.exists()) return null;
+  return docSnap.data() as FirestoreUser;
 }

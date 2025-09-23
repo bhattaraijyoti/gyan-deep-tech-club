@@ -31,8 +31,8 @@ export default function UserNav({ user }: UserNavProps) {
             <Link href="/dashboard" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
               Dashboard
             </Link>
-            <Link href="/courses" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
-              Courses
+            <Link href="/resources" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
+              Resources
             </Link>
 
             <div className="relative">

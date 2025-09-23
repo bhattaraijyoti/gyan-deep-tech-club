@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ExternalLink, Search, Code, Palette, BookOpen, Wrench, Cloud } from "lucide-react"
+import { id } from "date-fns/locale"
 const resources = [
     // Development
     {
@@ -50,10 +51,18 @@ const resources = [
       category: "Design",
       logo: "data:image/jpeg;base64,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",
     },
+    {
+      id: 6,
+      name: "Color Hunt",
+      description: "Curated collection of color palettes for designers and developers",
+      url: "https://colorhunt.co",
+      category: "Design",
+      logo: "https://www.keentodesign.com.au/wp-content/uploads/color-generate.jpg",
+    },
   
     // Learning
     {
-      id: 6,
+      id: 7,
       name: "W3Schools",
       description: "Web development tutorials and references",
       url: "https://w3schools.com",
@@ -63,7 +72,7 @@ const resources = [
   
     // Hosting/Cloud
     {
-      id: 7,
+      id: 8,
       name: "Firebase",
       description: "Google's mobile and web application development platform",
       url: "https://firebase.google.com",
@@ -71,7 +80,7 @@ const resources = [
       logo: "https://www.gstatic.com/mobilesdk/160503_mobilesdk/logo/2x/firebase_28dp.png",
     },
     {
-      id: 8,
+      id: 9,
       name: "Vercel",
       description: "Platform for frontend frameworks and static sites",
       url: "https://vercel.com",
@@ -81,7 +90,7 @@ const resources = [
   
     // Tools
     {
-      id: 9,
+      id: 10,
       name: "VS Code",
       description: "Lightweight but powerful source code editor",
       url: "https://code.visualstudio.com",
@@ -137,7 +146,7 @@ export default function ResourcesPage() {
                   variant={selectedCategory === category.name ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedCategory(category.name)}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 hover:bg-[#26667F] cursor-pointer"
                 >
                   {Icon && <Icon className="h-4 w-4" />}
                   {category.name}
