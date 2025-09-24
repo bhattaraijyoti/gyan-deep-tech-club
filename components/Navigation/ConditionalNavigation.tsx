@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getUser } from "@/lib/firestore"; // ✅ use your new combined firestore.ts
@@ -12,6 +13,7 @@ export default function ConditionalNavigation() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [roletype, setRoletype] = useState<"student" | "admin" | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -62,11 +64,13 @@ export default function ConditionalNavigation() {
     return <Navigation />;
   }
 
-  if (roletype === "admin") {
+  // ✅ If visiting /admin, always show AdminNav
+  if (pathname.startsWith("/admin")) {
     return <AdminNav user={firebaseUser} />;
   }
 
-  if (roletype === "student") {
+  // ✅ Default: Show UserNav for both "student" and "admin"
+  if (roletype === "student" || roletype === "admin") {
     return <UserNav user={firebaseUser} />;
   }
 
