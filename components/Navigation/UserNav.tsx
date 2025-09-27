@@ -28,11 +28,17 @@ export default function UserNav({ user }: UserNavProps) {
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/dashboard" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
+            <Link href="/user/dashboard" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
               Dashboard
+            </Link>
+            <Link href="/user/courses" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
+              Courses
             </Link>
             <Link href="/resources" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
               Resources
+            </Link>
+            <Link href="/user/announcements" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
+              Announcements
             </Link>
 
             <div className="relative">
@@ -63,6 +69,9 @@ export default function UserNav({ user }: UserNavProps) {
             </Link>
             <Link href="/courses" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
               Courses
+            </Link>
+            <Link href="/announcements" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
+              Announcements
             </Link>
             {/* Link to dynamic profile page (renders UserProfile or AdminProfile) */}
             <Button asChild className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white mt-4 rounded-xl">

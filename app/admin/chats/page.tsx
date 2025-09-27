@@ -1,11 +1,11 @@
 import { AuthGuard } from "@/components/auth/auth-guard";
-import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
+
 import { ChatModeration } from "@/components/admin/chat-moderation";
 
 export default function AdminChatsPage() {
   return (
     <AuthGuard requiredRole="admin">
-      <DashboardLayout role="admin">
+     
         <div className="space-y-8 p-6">
           <header className="mb-4">
             <h1 className="text-3xl font-bold text-foreground">Chat Management</h1>
@@ -18,7 +18,7 @@ export default function AdminChatsPage() {
             <ChatModeration />
           </section>
         </div>
-      </DashboardLayout>
+  
     </AuthGuard>
   );
 }

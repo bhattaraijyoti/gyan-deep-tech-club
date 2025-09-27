@@ -1,6 +1,6 @@
 // lib/firestore.ts
 import { firestore } from "@/lib/firebase"; 
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, addDoc, deleteDoc } from "firebase/firestore";
 
 // Role types
 export type RoleType = "student" | "admin";
@@ -12,6 +12,15 @@ export interface FirestoreUser {
   provider?: string;
   createdAt: any; // use Firestore Timestamp instead of Date
   roleType: RoleType[];
+}
+
+export interface Course {
+  id?: string;
+  title: string;
+  description?: string;
+  playlistUrl?: string;
+  createdAt: any;
+  createdBy: string;
 }
 
 /**
@@ -84,4 +93,54 @@ export async function getUser(uid: string) {
   const docSnap = await getDoc(userRef);
   if (!docSnap.exists()) return null;
   return docSnap.data() as FirestoreUser;
+}
+
+/**
+ * Create a new course
+ */
+export async function createCourse(course: Omit<Course, "id" | "createdAt">) {
+  const coursesRef = collection(firestore, "courses");
+  const docRef = await addDoc(coursesRef, {
+    ...course,
+    createdAt: serverTimestamp(),
+  });
+  console.log(`Course ${docRef.id} created`);
+  return { id: docRef.id, ...course };
+}
+
+/**
+ * Get all courses
+ */
+export async function getCourses() {
+  const coursesRef = collection(firestore, "courses");
+  const snapshot = await getDocs(coursesRef);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Course[];
+}
+
+/**
+ * Get a single course by ID
+ */
+export async function getCourseById(courseId: string) {
+  const courseRef = doc(firestore, "courses", courseId);
+  const docSnap = await getDoc(courseRef);
+  if (!docSnap.exists()) return null;
+  return { id: docSnap.id, ...docSnap.data() } as Course;
+}
+
+/**
+ * Update a course
+ */
+export async function updateCourse(courseId: string, data: Partial<Course>) {
+  const courseRef = doc(firestore, "courses", courseId);
+  await updateDoc(courseRef, data);
+  console.log(`Course ${courseId} updated`);
+}
+
+/**
+ * Delete a course
+ */
+export async function deleteCourse(courseId: string) {
+  const courseRef = doc(firestore, "courses", courseId);
+  await deleteDoc(courseRef);
+  console.log(`Course ${courseId} deleted`);
 }

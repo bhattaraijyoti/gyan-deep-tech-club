@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import UserProfile from "@/components/profile/UserProfile";
@@ -11,7 +9,7 @@ import { getAuth, onAuthStateChanged, User as FirebaseUser } from "firebase/auth
 
 export default function ProfilePage() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [roleType, setRoleType] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,29 +17,29 @@ export default function ProfilePage() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       if (!user) {
-        setRole(null);
+        setRoleType(null);
         setLoading(false);
         return;
       }
-      // Fetch role from Firestore
+      // Fetch roleType from Firestore
       const fetchRole = async () => {
         setLoading(true);
         try {
-          const ref = doc(db, "roles", user.uid);
+          const ref = doc(db, "users", user.uid);
           const snap = await getDoc(ref);
           if (snap.exists()) {
             const data = snap.data();
-            if (Array.isArray(data.roles) && data.roles.length > 0) {
-              setRole(data.roles[0]);
+            if (data?.roleType) {
+              setRoleType(data.roleType);
             } else {
-              setRole("user");
+              setRoleType("user");
             }
           } else {
-            setRole("user");
+            setRoleType("user");
           }
         } catch (err) {
           console.error("Error fetching role:", err);
-          setRole("user");
+          setRoleType("user");
         }
         setLoading(false);
       };
@@ -53,5 +51,9 @@ export default function ProfilePage() {
   if (loading) return <p>Loading...</p>;
   if (!firebaseUser) return <p>User not found</p>;
 
-  return role === "admin" ? <AdminProfile /> : <UserProfile user={firebaseUser} />;
+  return roleType === "admin" ? (
+    <AdminProfile />
+  ) : (
+    <UserProfile user={firebaseUser} />
+  );
 }

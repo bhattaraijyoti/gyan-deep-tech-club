@@ -1,11 +1,11 @@
 import { AuthGuard } from "@/components/auth/auth-guard"
-import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+
 import { CourseManagement } from "@/components/admin/course-management"
 
 export default function AdminCoursesPage() {
   return (
     <AuthGuard requiredRole="admin">
-      <DashboardLayout role="admin">
+
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -16,7 +16,7 @@ export default function AdminCoursesPage() {
 
           <CourseManagement />
         </div>
-      </DashboardLayout>
+
     </AuthGuard>
   )
 }
