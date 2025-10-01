@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Trash2 } from "lucide-react"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc } from "firebase/firestore"
+import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc, getDocs, deleteDoc } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
 
 interface FirestoreCourse {
@@ -64,6 +64,9 @@ export function CourseManagement() {
   const [currentLink, setCurrentLink] = useState("")
   const [playlistLanguage, setPlaylistLanguage] = useState<"english" | "hindi">("english")
   const [isPublishing, setIsPublishing] = useState(false)
+  const [publishedPlaylists, setPublishedPlaylists] = useState<FirestoreCourse[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [editingPlaylist, setEditingPlaylist] = useState<string | null>(null)
 
   const addPlaylistLink = () => {
     const trimmedLink = currentLink.trim()
@@ -84,6 +87,14 @@ export function CourseManagement() {
 
   const removePlaylistLink = (index: number) => {
     setPlaylistLinks((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const startEditPlaylist = (playlist: FirestoreCourse) => {
+    setPlaylistTitle(playlist.title)
+    setPlaylistLinks(playlist.videos)
+    setPlaylistLanguage(playlist.language)
+    setEditingPlaylist(playlist.id || null)
+    setShowHistory(false)
   }
 
   const publishPlaylist = async () => {
@@ -132,17 +143,57 @@ export function CourseManagement() {
         createdBy: adminUid,
       }
 
-      await addDoc(collection(db, "courses"), course)
+      if (editingPlaylist) {
+        await setDoc(doc(db, "courses", editingPlaylist), course, { merge: true })
+      } else {
+        await addDoc(collection(db, "courses"), course)
+      }
 
       setPlaylistTitle("")
       setPlaylistLinks([])
       setCurrentLink("")
-      alert("Playlist published successfully!")
+      setEditingPlaylist(null)
+      alert(editingPlaylist ? "Playlist updated successfully!" : "Playlist published successfully!")
+      await fetchPublishedPlaylists()
     } catch (error) {
       console.error("Error publishing playlist: ", error)
       alert("Failed to publish playlist. Try again later.")
     } finally {
       setIsPublishing(false)
+    }
+  }
+
+  const fetchPublishedPlaylists = async () => {
+    try {
+      const auth = getAuth()
+      const currentUser = auth.currentUser
+      if (!currentUser) return
+
+      const q = collection(db, "courses")
+      const snapshot = await getDocs(q)
+      const playlists: FirestoreCourse[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as FirestoreCourse),
+      }))
+      setPublishedPlaylists(playlists)
+    } catch (error) {
+      console.error("Error fetching playlists: ", error)
+    }
+  }
+
+  useEffect(() => {
+    fetchPublishedPlaylists()
+  }, [])
+
+  const deletePlaylist = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this playlist?")) return
+    try {
+      await deleteDoc(doc(db, "courses", id))
+      setPublishedPlaylists((prev) => prev.filter((p) => p.id !== id))
+      alert("Playlist deleted successfully.")
+    } catch (error) {
+      console.error("Error deleting playlist: ", error)
+      alert("Failed to delete playlist.")
     }
   }
 
@@ -272,8 +323,83 @@ export function CourseManagement() {
             disabled={isPublishing}
             className="bg-primary hover:bg-primary/90 w-full mt-4 font-semibold text-base py-3"
           >
-            {isPublishing ? "Publishing..." : `Publish Playlist (${playlistLanguage.charAt(0).toUpperCase() + playlistLanguage.slice(1)})`}
+            {isPublishing ? (editingPlaylist ? "Updating..." : "Publishing...") : (editingPlaylist ? "Update Playlist" : `Publish Playlist (${playlistLanguage.charAt(0).toUpperCase() + playlistLanguage.slice(1)})`)}
           </Button>
+
+          <div>
+            <Button
+              onClick={() => setShowHistory(!showHistory)}
+              className="mb-4 bg-secondary hover:bg-secondary/90 font-semibold text-base py-2 px-4"
+            >
+              {showHistory ? "Hide History" : "Show History"}
+            </Button>
+            {showHistory && (
+              <>
+                <h2 className="text-lg font-semibold mb-2">Published Playlists</h2>
+                {publishedPlaylists.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No playlists published yet.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {publishedPlaylists.map((pl) => (
+                      <li key={pl.id} className="flex flex-col bg-muted rounded p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{pl.title} ({pl.language})</span>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEditPlaylist(pl)}
+                              className="text-primary hover:text-primary"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => deletePlaylist(pl.id!)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {pl.videos.map((vid, idx) => {
+                            const extracted = extractYouTubeId(vid)
+                            return extracted ? (
+                              <div key={idx} className="aspect-video w-full rounded overflow-hidden">
+                                {extracted.type === "video" ? (
+                                  <iframe
+                                    width="100%"
+                                    height="180"
+                                    src={`https://www.youtube.com/embed/${extracted.id}`}
+                                    title="YouTube video player"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                ) : (
+                                  <iframe
+                                    width="100%"
+                                    height="180"
+                                    src={`https://www.youtube.com/embed/videoseries?list=${extracted.id}`}
+                                    title="YouTube playlist player"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
+                                )}
+                              </div>
+                            ) : null
+                          })}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
