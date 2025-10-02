@@ -16,7 +16,7 @@ export default function DashboardPage() {
           <p className="text-gray-700">View and edit your profile information.</p>
         </div>
 
-        {/* Card 2 */}
+        {/* Card 2 */}  
         <div className="bg-white shadow-md rounded-lg p-6 hover:shadow-lg transition">
           <h2 className="text-xl font-semibold mb-2">Projects</h2>
           <p className="text-gray-700">Manage and track your projects.</p>

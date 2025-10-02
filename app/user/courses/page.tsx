@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { useEffect, useState, useRef } from "react";
+import { db, auth } from "@/lib/firebase";
+import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 
 interface Course {
   id: string;
@@ -10,6 +10,99 @@ interface Course {
   language: string;
   videos: string[];
   createdAt?: any;
+}
+
+interface YouTubePlayerProps {
+  videoId?: string | null;
+  playlistId?: string | null;
+}
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: any;
+  }
+}
+
+function YouTubePlayer({ videoId, playlistId }: YouTubePlayerProps) {
+  const playerRef = useRef<any>(null);
+  const playerContainerId = videoId || playlistId || "player";
+
+  useEffect(() => {
+    if (!videoId && !playlistId) return;
+
+    let player: any;
+    let user = auth.currentUser;
+    if (!user) return;
+
+    const storageKey = videoId ? `video_${videoId}` : `playlist_${playlistId}`;
+    const progressDocRef = doc(db, "progress", user.uid + storageKey);
+
+    const onPlayerStateChange = async (event: any) => {
+      if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+        const currentTime = player.getCurrentTime();
+        try {
+          await setDoc(progressDocRef, { time: currentTime }, { merge: true });
+        } catch (e) {
+          console.error("Error saving progress:", e);
+        }
+      }
+    };
+
+    const loadPlayer = async (startTime: number) => {
+      player = new window.YT.Player(playerContainerId, {
+        height: "360",
+        width: "640",
+        videoId: videoId || undefined,
+        playerVars: playlistId
+          ? { listType: "playlist", list: playlistId, start: startTime }
+          : { start: startTime },
+        events: {
+          onStateChange: onPlayerStateChange,
+        },
+      });
+      playerRef.current = player;
+    };
+
+    const loadYouTubeAPI = () => {
+      return new Promise<void>((resolve) => {
+        if (window.YT && window.YT.Player) {
+          resolve();
+        } else {
+          const tag = document.createElement("script");
+          tag.src = "https://www.youtube.com/iframe_api";
+          const firstScriptTag = document.getElementsByTagName("script")[0];
+          firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+          window.onYouTubeIframeAPIReady = () => {
+            resolve();
+          };
+        }
+      });
+    };
+
+    const fetchProgressAndLoad = async () => {
+      try {
+        const docSnap = await getDoc(progressDocRef);
+        const savedTime = docSnap.exists() ? docSnap.data()?.time : 0;
+        await loadPlayer(savedTime || 0);
+      } catch (e) {
+        console.error("Error fetching progress:", e);
+        await loadPlayer(0);
+      }
+    };
+
+    loadYouTubeAPI().then(() => {
+      fetchProgressAndLoad();
+    });
+
+    return () => {
+      if (player) {
+        player.destroy();
+      }
+    };
+  }, [videoId, playlistId]);
+
+  return <div id={playerContainerId} className="w-full h-64 rounded-md shadow" />;
 }
 
 export default function CoursesPage() {
@@ -50,17 +143,19 @@ export default function CoursesPage() {
                 {course.videos && course.videos.length > 0 ? (
                   course.videos.map((video, index) => {
                     let embedUrl: string | null = null;
+                    let videoId: string | null = null;
+                    let playlistId: string | null = null;
 
                     try {
                       const url = new URL(video);
 
                       if (url.searchParams.get("v")) {
                         // Single video
-                        const videoId = url.searchParams.get("v");
+                        videoId = url.searchParams.get("v");
                         embedUrl = `https://www.youtube.com/embed/${videoId}`;
                       } else if (url.searchParams.get("list")) {
                         // Playlist
-                        const playlistId = url.searchParams.get("list");
+                        playlistId = url.searchParams.get("list");
                         embedUrl = `https://www.youtube.com/embed/videoseries?list=${playlistId}`;
                       }
                     } catch (e) {
@@ -68,15 +163,11 @@ export default function CoursesPage() {
                     }
 
                     return embedUrl ? (
-                      <div key={index} className="aspect-w-16 aspect-h-9">
-                        <iframe
-                          src={embedUrl}
-                          title={`Video ${index + 1}`}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                          className="w-full h-64 rounded-md shadow"
-                        ></iframe>
-                      </div>
+                      <YouTubePlayer
+                        key={index}
+                        videoId={videoId}
+                        playlistId={playlistId}
+                      />
                     ) : (
                       <a
                         key={index}
