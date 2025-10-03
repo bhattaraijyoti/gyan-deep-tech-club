@@ -24,7 +24,6 @@ function isValidYouTubeUrl(url: string) {
     const hostname = parsedUrl.hostname.replace("www.", "")
 
     if (hostname === "youtube.com" || hostname === "m.youtube.com") {
-      // Check for either video or playlist
       return parsedUrl.searchParams.has("v") || parsedUrl.searchParams.has("list")
     } else if (hostname === "youtu.be") {
       return parsedUrl.pathname.length > 1
@@ -42,11 +41,9 @@ function extractYouTubeId(url: string) {
 
     if (hostname === "youtube.com" || hostname === "m.youtube.com") {
       if (parsedUrl.searchParams.has("list")) {
-        // Playlist
         return { type: "playlist", id: parsedUrl.searchParams.get("list") }
       }
       if (parsedUrl.searchParams.has("v")) {
-        // Single video
         return { type: "video", id: parsedUrl.searchParams.get("v") }
       }
     } else if (hostname === "youtu.be") {
@@ -103,6 +100,15 @@ export function CourseManagement() {
       return
     }
 
+    // Trim and validate all URLs
+    const trimmedLinks = playlistLinks.map((l) => l.trim()).filter((l) => !!l)
+    for (let link of trimmedLinks) {
+      if (!isValidYouTubeUrl(link)) {
+        alert(`Invalid YouTube URL detected: ${link}\nPlease check all video links.`)
+        return
+      }
+    }
+
     const auth = getAuth()
     const currentUser = auth.currentUser
     if (!currentUser) {
@@ -114,21 +120,29 @@ export function CourseManagement() {
 
     try {
       const userRef = doc(db, "users", adminUid)
-      const userSnap = await getDoc(userRef)
+      let userSnap = await getDoc(userRef)
 
+      // Ensure Firestore write matches rules: roleType == "admin" in Firestore
       if (!userSnap.exists()) {
-        // Create admin user document if it doesn't exist
         await setDoc(userRef, {
           uid: adminUid,
           roleType: "admin",
           createdAt: serverTimestamp()
         })
+        // Fetch again after setting
+        userSnap = await getDoc(userRef)
       }
 
-      // Re-fetch user document after creation or if existed
-      const updatedUserSnap = await getDoc(userRef)
-      const userData = updatedUserSnap.data()
-      if (!updatedUserSnap.exists() || !userData?.roleType?.includes("admin")) {
+      const userData = userSnap.data()
+      // Log admin data for debugging
+      console.log("User data for admin check:", userData)
+
+      // Admin check works for both string and array roleType
+      const isAdmin =
+        userData?.roleType === "admin" ||
+        (Array.isArray(userData?.roleType) && userData.roleType.includes("admin"))
+
+      if (!userSnap.exists() || !isAdmin) {
         alert("You do not have permission to publish courses.")
         return
       }
@@ -138,7 +152,7 @@ export function CourseManagement() {
       const course: FirestoreCourse = {
         title: playlistTitle,
         language: playlistLanguage,
-        videos: playlistLinks,
+        videos: trimmedLinks,
         createdAt: serverTimestamp(),
         createdBy: adminUid,
       }
@@ -226,9 +240,7 @@ export function CourseManagement() {
                 <select
                   id="playlist-language"
                   value={playlistLanguage}
-                  onChange={(e) =>
-                    setPlaylistLanguage(e.target.value as "english" | "hindi")
-                  }
+                  onChange={(e) => setPlaylistLanguage(e.target.value as "english" | "hindi")}
                   className="w-full rounded border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 >
                   <option value="english">English</option>
