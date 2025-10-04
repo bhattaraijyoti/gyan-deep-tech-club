@@ -64,13 +64,13 @@ export default function UserNav({ user }: UserNavProps) {
 
         {isOpen && (
           <div className="md:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
-            <Link href="/dashboard" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
+            <Link href="/user/dashboard" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
               Dashboard
             </Link>
-            <Link href="/courses" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
+            <Link href="/user/courses" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
               Courses
             </Link>
-            <Link href="/announcements" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
+            <Link href="/user/announcements" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
               Announcements
             </Link>
             {/* Link to dynamic profile page (renders UserProfile or AdminProfile) */}
