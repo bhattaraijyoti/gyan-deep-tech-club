@@ -38,23 +38,18 @@ export default function AdminNav({ user }: { user: User }) {
             >
               Manage Users
             </Link>
-            <Link
-              href="/admin/settings"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
-            >
-              Settings
-            </Link>
-            <Link
-              href="/profile"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
-            >
-              Profile
-            </Link>
+       
             <Link
               href="/admin/courses"
               className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
             >
               Courses
+            </Link>
+            <Link
+              href="/admin/announcements"
+              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+            >
+              Announcements
             </Link>
           </div>
         </div>
@@ -78,25 +73,18 @@ export default function AdminNav({ user }: { user: User }) {
               Manage Users
             </Link>
             <Link
-              href="/admin/settings"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg rounded-lg px-2 py-2 hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Settings
-            </Link>
-            <Link
-              href="/admin/profile"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg rounded-lg px-2 py-2 hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Profile
-            </Link>
-            <Link
               href="/admin/courses"
               className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg rounded-lg px-2 py-2 hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10"
               onClick={() => setMobileMenuOpen(false)}
             >
               Courses
+            </Link>
+            <Link
+              href="/admin/announcements"
+              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg rounded-lg px-2 py-2 hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Announcements
             </Link>
           </div>
         </div>

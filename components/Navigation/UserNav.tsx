@@ -79,12 +79,7 @@ export default function UserNav({ user }: UserNavProps) {
                 Profile
               </Link>
             </Button>
-            <Button
-              onClick={() => auth.signOut()}
-              className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white mt-4 rounded-xl"
-            >
-              Logout
-            </Button>
+          
           </div>
         )}
       </div>
