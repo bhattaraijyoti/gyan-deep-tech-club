@@ -7,6 +7,8 @@ import { Loader2, Search } from "lucide-react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 
 interface Course {
   id: string;
@@ -168,11 +170,26 @@ function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: 
 }
 
 export default function CoursesPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
+  // Redirect if not signed in
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        router.replace("/unauthorized");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
     const fetchCourses = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "courses"));
@@ -186,7 +203,7 @@ export default function CoursesPage() {
       }
     };
     fetchCourses();
-  }, []);
+  }, [user]);
 
   const filteredCourses = courses.filter((course) =>
     course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

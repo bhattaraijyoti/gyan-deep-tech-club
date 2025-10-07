@@ -1,8 +1,9 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { db } from "@/lib/firebase"
+import { collection, addDoc, Timestamp } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,37 +19,87 @@ export default function ContactPage() {
     subject: "",
     message: "",
   })
+  const [user, setUser] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+  const auth = getAuth()
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Get logged-in user (if any) and prefill email & name
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      if (currentUser) {
+        setFormData((prev) => ({
+          ...prev,
+          name: currentUser.displayName || "",
+          email: currentUser.email || "",
+        }))
+      }
+    })
+    return () => unsubscribe()
+  }, [auth])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Basic validation
+    if (!formData.subject.trim() || !formData.message.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill out both subject and message.",
+      })
+      return
+    }
+
+    if (!formData.email.trim() || !isValidEmail(formData.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      await addDoc(collection(db, "messages"), {
+        name: formData.name || "Anonymous",
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        createdAt: Timestamp.now(),
+      })
 
-    toast({
-      title: "Message sent!",
-      description: "Thank you for your feedback. We'll get back to you soon.",
-    })
+      toast({
+        title: "Message sent!",
+        description: "Thank you for your feedback. We'll get back to you soon.",
+      })
 
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    })
-    setIsSubmitting(false)
+      // Reset only subject and message
+      setFormData((prev) => ({
+        ...prev,
+        subject: "",
+        message: "",
+      }))
+    } catch (error) {
+      console.error("Failed to send message:", error)
+      toast({
+        title: "Error",
+        description: "Could not send message. Please try again later.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -83,9 +134,8 @@ export default function ContactPage() {
                       id="name"
                       name="name"
                       value={formData.name}
-                      onChange={handleInputChange}
+                      onChange={handleChange}
                       placeholder="Your full name"
-                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -95,7 +145,7 @@ export default function ContactPage() {
                       name="email"
                       type="email"
                       value={formData.email}
-                      onChange={handleInputChange}
+                      onChange={handleChange}
                       placeholder="your.email@example.com"
                       required
                     />
@@ -108,7 +158,7 @@ export default function ContactPage() {
                     id="subject"
                     name="subject"
                     value={formData.subject}
-                    onChange={handleInputChange}
+                    onChange={handleChange}
                     placeholder="What's this about?"
                     required
                   />
@@ -120,7 +170,7 @@ export default function ContactPage() {
                     id="message"
                     name="message"
                     value={formData.message}
-                    onChange={handleInputChange}
+                    onChange={handleChange}
                     placeholder="Tell us more about your feedback or suggestion..."
                     rows={6}
                     required
@@ -128,14 +178,10 @@ export default function ContactPage() {
                 </div>
 
                 <Button type="submit" className="w-full cursor-pointer hover:bg-[#26667F]" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>Sending...</>
-                  ) : (
-                    <>
-                      Send Message
-                      <Send className="ml-2 h-4 w-4" />
-                    </>
-                  )}
+                  {isSubmitting ? "Sending..." : <>
+                    Send Message
+                    <Send className="ml-2 h-4 w-4" />
+                  </>}
                 </Button>
               </form>
             </CardContent>
@@ -159,7 +205,7 @@ export default function ContactPage() {
 
                 <div>
                   <h3 className="font-semibold mb-2">Response Time</h3>
-                  <p className="text-muted-foreground">We typically respond within 24-48 hours during weekdays.</p>
+                  <p className="text-muted-foreground">We typically respond within 24–48 hours during weekdays.</p>
                 </div>
               </CardContent>
             </Card>
@@ -172,45 +218,15 @@ export default function ContactPage() {
               <CardContent>
                 <div className="flex gap-4">
                   <Button variant="outline" size="icon" asChild className="cursor-pointer hover:bg-[#26667F]">
-                    <a href="#" target="_blank" rel="noopener noreferrer">
-                      <Github className="h-4 w-4" />
-                      <span className="sr-only">GitHub</span>
-                    </a>
+                    <a href="#" target="_blank" rel="noopener noreferrer"><Github className="h-4 w-4" /></a>
                   </Button>
                   <Button variant="outline" size="icon" asChild className="cursor-pointer hover:bg-[#26667F]">
-                    <a href="#" target="_blank" rel="noopener noreferrer">
-                      <Linkedin className="h-4 w-4" />
-                      <span className="sr-only">LinkedIn</span>
-                    </a>
+                    <a href="#" target="_blank" rel="noopener noreferrer"><Linkedin className="h-4 w-4" /></a>
                   </Button>
                   <Button variant="outline" size="icon" asChild className="cursor-pointer hover:bg-[#26667F]">
-                    <a href="#" target="_blank" rel="noopener noreferrer">
-                      <Twitter className="h-4 w-4" />
-                      <span className="sr-only">Twitter</span>
-                    </a>
+                    <a href="#" target="_blank" rel="noopener noreferrer"><Twitter className="h-4 w-4" /></a>
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-primary/5 border-primary/20">
-              <CardHeader>
-                <CardTitle>Want to contribute?</CardTitle>
-                <CardDescription>Help us make this platform better for all BCA students</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  We're always looking for contributors who can help us:
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-1 mb-4">
-                  <li>• Suggest new resources and tools</li>
-                  <li>• Report broken links or outdated information</li>
-                  <li>• Share feedback on user experience</li>
-                  <li>• Contribute content or tutorials</li>
-                </ul>
-                <Button variant="outline" size="sm" className="cursor-pointer hover:bg-[#26667F]">
-                  Learn More
-                </Button>
               </CardContent>
             </Card>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, addDoc, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -18,6 +19,7 @@ interface Announcement {
 }
 
 export default function AnnouncementsPage() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -25,23 +27,21 @@ export default function AnnouncementsPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Fetch user + admin check
+  // Fetch user + admin check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Simple admin check (adjust as needed)
         const adminEmails = ["admin@example.com", "principal@example.com"];
         setIsAdmin(adminEmails.includes(currentUser.email || ""));
       } else {
-        setUser(null);
-        setIsAdmin(false);
+        router.replace("/unauthorized");
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
-  // ✅ Fetch announcements
+  // Fetch announcements
   const fetchAnnouncements = async () => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
@@ -56,7 +56,7 @@ export default function AnnouncementsPage() {
     fetchAnnouncements();
   }, []);
 
-  // ✅ Post new announcement (admin only)
+  // Post new announcement (admin only)
   const handlePost = async () => {
     if (!title.trim() || !message.trim()) {
       toast.error("Please fill in all fields");
