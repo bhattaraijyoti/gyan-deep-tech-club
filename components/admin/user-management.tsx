@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Trash2 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import UserProfile from "@/components/profile/UserProfile";
 
 interface User {
   id: string;
   name?: string;
   email: string;
-  roles?: string[]; // now supports multiple roles
+  roles?: string[]; // supports multiple roles
   photoURL?: string;
 }
 
@@ -22,6 +23,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showUserProfile, setShowUserProfile] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -30,7 +33,7 @@ export default function AdminUsersPage() {
         const userData: User[] = querySnapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
-          roles: docSnap.data().roles || [docSnap.data().role || "student"], // fallback to single role or student
+          roles: docSnap.data().roles || [docSnap.data().role || "student"],
         })) as User[];
         setUsers(userData);
       } catch (error) {
@@ -121,23 +124,51 @@ export default function AdminUsersPage() {
                       </Badge>
                     ))}
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDelete(user.id)}
-                    disabled={deleting === user.id}
-                    className="flex items-center gap-1 mt-2"
-                  >
-                    {deleting === user.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    {deleting === user.id ? "Deleting..." : "Delete"}
-                  </Button>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowUserProfile(true);
+                      }}
+                    >
+                      View Profile
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(user.id)}
+                      disabled={deleting === user.id}
+                      className="flex items-center gap-1"
+                    >
+                      {deleting === user.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      {deleting === user.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* UserProfile Modal */}
+        {showUserProfile && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white w-full max-w-5xl h-full overflow-auto rounded-lg shadow-lg relative">
+              <button
+                onClick={() => setShowUserProfile(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                &times;
+              </button>
+
+              <UserProfile user={selectedUser} />
+            </div>
           </div>
         )}
       </div>
