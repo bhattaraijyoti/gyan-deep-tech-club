@@ -143,9 +143,23 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   return (
     <div
       id={containerId}
-      className="w-full rounded-lg shadow-md bg-black mx-auto overflow-hidden"
-      style={{ aspectRatio: "16 / 9", maxWidth: "100%" }}
-    />
+      className="relative w-full bg-black rounded-lg overflow-hidden shadow-md mx-auto"
+      style={{
+        width: "100%",
+        aspectRatio: "16 / 9",
+        maxWidth: "100%",
+        height: "auto",
+        minHeight: "200px",
+      }}
+    >
+      <style jsx>{`
+        iframe {
+          width: 100% !important;
+          height: 100% !important;
+          border: none;
+        }
+      `}</style>
+    </div>
   );
 }
 
