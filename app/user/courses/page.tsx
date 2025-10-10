@@ -51,18 +51,37 @@ function isValidId(id: string | null | undefined): boolean {
   return !!id && /^[a-zA-Z0-9_-]+$/.test(id.trim());
 }
 
+/* ===============================
+   YOUTUBE PLAYER (tracks individual video progress)
+   =============================== */
 function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps) {
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      console.log("👤 Auth state changed:", u ? u.uid : "No user");
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
   const validPlaylistId = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
 
-  if (!validVideoId && !validPlaylistId) return null;
+  if (!validVideoId && !validPlaylistId) {
+    console.warn("⚠️ Invalid video or playlist ID:", { videoId, playlistId });
+    return null;
+  }
 
   useEffect(() => {
+    if (!user) {
+      console.warn("⏳ Waiting for user authentication...");
+      return;
+    }
+
     let player: any;
-    const user = auth.currentUser;
-    if (!user) return;
     const progressId = validVideoId || validPlaylistId || "unknown";
     const progressDocRef = doc(db, "users", user.uid, "progress", progressId);
     let savedTime = 0;
@@ -70,19 +89,40 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     const saveProgress = async () => {
       if (player && player.getCurrentTime) {
         const currentTime = player.getCurrentTime();
+        if (isNaN(currentTime)) return;
+
+        // Track current video ID even in playlists
+        const currentVideoId = player?.getVideoData?.()?.video_id || validVideoId;
+
+        console.log("💾 Saving progress:", { currentVideoId, time: currentTime });
         try {
           await setDoc(
             progressDocRef,
-            { time: currentTime, videoId: validVideoId, playlistId: validPlaylistId },
+            { 
+              time: currentTime, 
+              videoId: currentVideoId, 
+              playlistId: validPlaylistId 
+            },
             { merge: true }
           );
+          console.log("✅ Saved progress for video:", currentVideoId);
         } catch (e) {
-          console.error("Error saving progress:", e);
+          console.error("🔥 Firestore error saving progress:", e);
         }
       }
     };
 
     const onPlayerStateChange = async (event: any) => {
+      const stateMap: Record<number, string> = {
+        [-1]: "UNSTARTED",
+        [0]: "ENDED",
+        [1]: "PLAYING",
+        [2]: "PAUSED",
+        [3]: "BUFFERING",
+        [5]: "CUED",
+      };
+      console.log("🎬 Player state changed:", stateMap[event.data]);
+
       if (
         event.data === window.YT.PlayerState.PAUSED ||
         event.data === window.YT.PlayerState.ENDED
@@ -92,13 +132,14 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     };
 
     const onPlayerReady = () => {
+      console.log("✅ Player ready. Resuming from:", savedTime);
       if (savedTime > 0) player.seekTo(savedTime, true);
       intervalRef.current = setInterval(saveProgress, 5000);
     };
 
     const loadPlayer = (startTime: number, videoIdToUse: string | null, playlistIdToUse: string | null) => {
+      console.log("📺 Loading player with:", { startTime, videoIdToUse, playlistIdToUse });
       savedTime = startTime;
-      if (!videoIdToUse && !playlistIdToUse) return;
 
       const playerOptions: any = {
         height: "360",
@@ -109,6 +150,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
       if (playlistIdToUse) {
         playerOptions.playerVars = { listType: "playlist", list: playlistIdToUse, start: startTime };
+        if (videoIdToUse) playerOptions.videoId = videoIdToUse; // start specific video
       } else if (videoIdToUse) {
         playerOptions.videoId = videoIdToUse;
         playerOptions.playerVars = { start: startTime };
@@ -119,26 +161,33 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     };
 
     const fetchProgressAndLoad = async () => {
+      console.log("📂 Fetching saved progress...");
       try {
         const docSnap = await getDoc(progressDocRef);
         const data = docSnap.exists() ? docSnap.data() : null;
         const time = typeof data?.time === "number" ? data.time : 0;
         const savedVideoId = isValidId(data?.videoId) ? data.videoId : validVideoId;
         const savedPlaylistId = isValidId(data?.playlistId) ? data.playlistId : validPlaylistId;
-        loadPlayer(time, savedVideoId, savedPlaylistId);
+        console.log("🕓 Existing progress data:", data);
+        loadPlayer(time, savedVideoId || validVideoId, savedPlaylistId);
       } catch (e) {
-        console.error("Error fetching progress:", e);
+        console.error("⚠️ Error fetching progress:", e);
         loadPlayer(0, validVideoId, validPlaylistId);
       }
     };
 
-    loadYouTubeAPI().then(fetchProgressAndLoad);
+    console.log("🌐 Loading YouTube API...");
+    loadYouTubeAPI().then(() => {
+      console.log("✅ YouTube API ready!");
+      fetchProgressAndLoad();
+    });
 
     return () => {
+      console.log("🧹 Cleaning up player and intervals...");
       if (player) player.destroy();
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [validVideoId, validPlaylistId, containerId]);
+  }, [user, validVideoId, validPlaylistId, containerId]);
 
   return (
     <div
@@ -151,18 +200,13 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
         height: "auto",
         minHeight: "200px",
       }}
-    >
-      <style jsx>{`
-        iframe {
-          width: 100% !important;
-          height: 100% !important;
-          border: none;
-        }
-      `}</style>
-    </div>
+    ></div>
   );
 }
 
+/* ===============================
+   PARSE YOUTUBE URL
+   =============================== */
 function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: string | null } {
   try {
     const url = new URL(urlStr.trim());
@@ -183,6 +227,9 @@ function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: 
   }
 }
 
+/* ===============================
+   MAIN COURSES PAGE
+   =============================== */
 export default function CoursesPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -190,7 +237,6 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  // Redirect if not signed in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
@@ -267,10 +313,7 @@ export default function CoursesPage() {
                 .filter((v) => v !== null) as { videoId: string | null; playlistId: string | null }[];
 
               return (
-                <Card
-                  key={course.id}
-                  className="hover:shadow-lg transition-shadow duration-300 flex flex-col"
-                >
+                <Card key={course.id} className="hover:shadow-lg transition-shadow duration-300 flex flex-col">
                   <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
                     <CardTitle className="text-lg font-semibold text-[#26667F]">{course.title}</CardTitle>
                     <Badge variant="secondary" className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
@@ -282,19 +325,15 @@ export default function CoursesPage() {
                       <p className="text-gray-500 text-center py-8">No valid videos available for this course.</p>
                     ) : (
                       <div className="space-y-4">
-                        {validVideos.map(({ videoId, playlistId }, index) => {
-                          const validVid = isValidId(videoId?.trim() ?? null) ? videoId : null;
-                          const validPlay = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
-                          if (!validVid && !validPlay) return null;
-                          return (
-                            <div
-                              key={index}
-                              className="w-full aspect-video rounded-lg shadow-sm overflow-hidden border border-gray-200"
-                            >
-                              <YouTubePlayer containerId={`player-${course.id}-${index}`} videoId={validVid} playlistId={validPlay} />
-                            </div>
-                          );
-                        })}
+                        {validVideos.map(({ videoId, playlistId }, index) => (
+                          <div key={index} className="w-full aspect-video rounded-lg shadow-sm overflow-hidden border border-gray-200">
+                            <YouTubePlayer
+                              containerId={`player-${course.id}-${index}`}
+                              videoId={videoId}
+                              playlistId={playlistId}
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
                   </CardContent>

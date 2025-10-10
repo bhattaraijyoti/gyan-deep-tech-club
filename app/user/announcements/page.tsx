@@ -200,28 +200,41 @@ export default function AnnouncementsPage() {
   const getCategoryColor = (cat: string) => {
     switch (cat) {
       case "Event":
-        return "bg-accent-blue/10 text-accent-blue border-accent-blue/20"
+        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900"
       case "Notice":
-        return "bg-accent-amber/10 text-accent-amber border-accent-amber/20"
+        return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900"
       case "Update":
-        return "bg-accent-green/10 text-accent-green border-accent-green/20"
+        return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900"
       case "General":
-        return "bg-muted/60 text-muted-foreground border-border"
+        return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:text-slate-400 dark:border-slate-800"
       default:
-        return "bg-muted text-muted-foreground border-border"
+        return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:text-slate-400 dark:border-slate-800"
+    }
+  }
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat) {
+      case "Event":
+        return "📅"
+      case "Notice":
+        return "⚠️"
+      case "Update":
+        return "🔄"
+      case "General":
+        return "📢"
+      default:
+        return "📢"
     }
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-8 lg:px-16 py-12 lg:py-16">
-          <div className="flex items-start justify-between gap-12">
-            <div className="flex-1 space-y-4">
-              <h1 className="font-serif text-5xl lg:text-7xl font-light tracking-tight text-foreground leading-[1.1]">
-                Announcements
-              </h1>
-              <p className="text-lg text-muted-foreground font-light leading-relaxed max-w-2xl">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex-1 space-y-1.5">
+              <h1 className="font-sans text-3xl lg:text-4xl font-bold tracking-tight text-foreground">Announcements</h1>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Stay informed with the latest updates and important notices
               </p>
             </div>
@@ -229,7 +242,7 @@ export default function AnnouncementsPage() {
               <Button
                 onClick={() => setShowCreateForm(!showCreateForm)}
                 size="lg"
-                className="mt-2 gap-2.5 font-medium px-6 h-12 rounded-xl"
+                className="gap-2 font-medium shadow-sm"
                 variant={showCreateForm ? "outline" : "default"}
               >
                 {showCreateForm ? (
@@ -240,7 +253,7 @@ export default function AnnouncementsPage() {
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Create
+                    New Announcement
                   </>
                 )}
               </Button>
@@ -249,109 +262,103 @@ export default function AnnouncementsPage() {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-8 lg:px-16 py-16 lg:py-20">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         {isAdmin && showCreateForm && (
-          <Card className="p-10 lg:p-12 mb-16 border-border/50 shadow-sm bg-card rounded-2xl">
-            <h2 className="font-serif text-4xl font-light mb-10 text-foreground">Create Announcement</h2>
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground/90 tracking-wide uppercase text-xs">
-                    Title
+          <Card className="p-6 lg:p-8 mb-8 shadow-md border-2">
+            <h2 className="font-sans text-2xl font-semibold mb-6 text-foreground">Create New Announcement</h2>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Title <span className="text-destructive">*</span>
                   </label>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     disabled={loading || uploading}
-                    className="text-base h-12 rounded-xl border-border/50"
+                    className="text-base"
                     placeholder="Enter announcement title"
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground/90 tracking-wide uppercase text-xs">
-                    Category
-                  </label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Category</label>
                   <Select
                     value={category}
                     onValueChange={(val: any) => setCategory(val)}
                     disabled={loading || uploading}
                   >
-                    <SelectTrigger className="text-base h-12 rounded-xl border-border/50">
+                    <SelectTrigger className="text-base">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Event">Event</SelectItem>
-                      <SelectItem value="Notice">Notice</SelectItem>
-                      <SelectItem value="Update">Update</SelectItem>
-                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Event">📅 Event</SelectItem>
+                      <SelectItem value="Notice">⚠️ Notice</SelectItem>
+                      <SelectItem value="Update">🔄 Update</SelectItem>
+                      <SelectItem value="General">📢 General</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground/90 tracking-wide uppercase text-xs">
-                  Summary
-                </label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Summary</label>
                 <Input
                   value={summary}
                   onChange={(e) => setSummary(e.target.value)}
                   disabled={loading || uploading}
-                  className="text-base h-12 rounded-xl border-border/50"
-                  placeholder="Brief summary (optional)"
+                  className="text-base"
+                  placeholder="Brief summary (optional - will be auto-generated if left empty)"
                 />
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground/90 tracking-wide uppercase text-xs">
-                  Message
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Message <span className="text-destructive">*</span>
                 </label>
                 <Textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  rows={10}
+                  rows={8}
                   disabled={loading || uploading}
-                  className="text-base resize-none rounded-xl border-border/50 leading-relaxed"
+                  className="text-base resize-none leading-relaxed"
                   placeholder="Enter the full announcement message"
                 />
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-foreground/90 tracking-wide uppercase text-xs">
-                  Attachments
-                </label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Attachments</label>
                 <Input
                   type="file"
                   multiple
                   onChange={handleAttachmentChange}
                   disabled={loading || uploading}
-                  className="text-base cursor-pointer h-12 rounded-xl border-border/50"
+                  className="text-base cursor-pointer"
                 />
                 {attachmentFiles.length > 0 && (
-                  <div className="mt-6 flex flex-wrap gap-4">
+                  <div className="mt-4 flex flex-wrap gap-3">
                     {attachmentFiles.map((file, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-3 bg-muted/30 rounded-xl px-5 py-3 border border-border/50 text-sm group hover:bg-muted/50 transition-all"
+                        className="flex items-center gap-2 bg-muted/50 rounded-lg px-4 py-2.5 border text-sm group hover:bg-muted transition-colors"
                       >
                         {file.type.startsWith("image/") ? (
                           <img
                             src={URL.createObjectURL(file) || "/placeholder.svg"}
                             alt={file.name}
-                            className="h-12 w-12 object-cover rounded-lg border border-border/50"
+                            className="h-10 w-10 object-cover rounded border"
                           />
                         ) : (
-                          <div className="h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center border border-border/50">
-                            <Paperclip className="h-5 w-5 text-muted-foreground" />
+                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center border">
+                            <Paperclip className="h-4 w-4 text-muted-foreground" />
                           </div>
                         )}
-                        <span className="truncate max-w-[200px] text-foreground font-medium">{file.name}</span>
+                        <span className="truncate max-w-[180px] text-foreground font-medium">{file.name}</span>
                         <button
                           onClick={() => handleRemoveAttachment(idx)}
-                          className="ml-2 p-1.5 hover:bg-background rounded-lg transition-colors"
+                          className="ml-1 p-1 hover:bg-background rounded transition-colors"
                         >
-                          <X className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                          <X className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground" />
                         </button>
                       </div>
                     ))}
@@ -359,37 +366,37 @@ export default function AnnouncementsPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-8 pt-4">
-                <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center gap-6 pt-2">
+                <label className="flex items-center gap-2.5 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={isImportant}
                     onChange={(e) => setIsImportant(e.target.checked)}
-                    className="w-5 h-5 rounded-md border-border/50 cursor-pointer"
+                    className="w-4 h-4 rounded border-input cursor-pointer"
                   />
-                  <span className="text-sm font-medium text-foreground group-hover:text-foreground/70 transition-colors">
+                  <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
                     Mark as Important
                   </span>
                 </label>
 
-                <label className="flex items-center gap-3 cursor-pointer group">
+                <label className="flex items-center gap-2.5 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={isPinned}
                     onChange={(e) => setIsPinned(e.target.checked)}
-                    className="w-5 h-5 rounded-md border-border/50 cursor-pointer"
+                    className="w-4 h-4 rounded border-input cursor-pointer"
                   />
-                  <span className="text-sm font-medium text-foreground group-hover:text-foreground/70 transition-colors">
+                  <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
                     Pin to Top
                   </span>
                 </label>
               </div>
 
-              <div className="flex gap-4 pt-8 border-t border-border/50">
+              <div className="flex gap-3 pt-4 border-t">
                 <Button
                   onClick={handlePost}
                   disabled={loading || uploading}
-                  className="flex-1 h-12 text-base font-medium rounded-xl"
+                  className="flex-1 text-base font-medium shadow-sm"
                 >
                   {loading ? "Publishing..." : uploading ? "Uploading..." : "Publish Announcement"}
                 </Button>
@@ -397,7 +404,7 @@ export default function AnnouncementsPage() {
                   variant="outline"
                   onClick={() => setShowCreateForm(false)}
                   disabled={loading || uploading}
-                  className="h-12 px-10 text-base font-medium rounded-xl"
+                  className="px-8 text-base font-medium"
                 >
                   Cancel
                 </Button>
@@ -406,21 +413,21 @@ export default function AnnouncementsPage() {
           </Card>
         )}
 
-        <div className="mb-12 space-y-6">
+        <div className="mb-8 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex items-center gap-3 flex-1 relative">
-              <Search className="w-5 h-5 text-muted-foreground absolute left-5" />
+              <Search className="w-5 h-5 text-muted-foreground absolute left-4 pointer-events-none" />
               <Input
                 placeholder="Search announcements..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 pl-14 h-14 text-base border-border/50 rounded-xl"
+                className="flex-1 pl-12 h-11 text-base shadow-sm"
               />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 flex-wrap">
               <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val)}>
-                <SelectTrigger className="w-[220px] h-14 text-base border-border/50 rounded-xl">
+                <SelectTrigger className="w-[200px] h-11 text-base shadow-sm">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4" />
                     <SelectValue placeholder="All Categories" />
@@ -428,22 +435,22 @@ export default function AnnouncementsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="Event">Event</SelectItem>
-                  <SelectItem value="Notice">Notice</SelectItem>
-                  <SelectItem value="Update">Update</SelectItem>
-                  <SelectItem value="General">General</SelectItem>
+                  <SelectItem value="Event">📅 Event</SelectItem>
+                  <SelectItem value="Notice">⚠️ Notice</SelectItem>
+                  <SelectItem value="Update">🔄 Update</SelectItem>
+                  <SelectItem value="General">📢 General</SelectItem>
                 </SelectContent>
               </Select>
 
-              <label className="flex items-center gap-3 cursor-pointer group whitespace-nowrap px-4">
+              <label className="flex items-center gap-2.5 cursor-pointer group whitespace-nowrap px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors">
                 <input
                   type="checkbox"
                   id="unreadOnly"
                   checked={showUnreadOnly}
                   onChange={(e) => setShowUnreadOnly(e.target.checked)}
-                  className="w-5 h-5 rounded-md border-border/50 cursor-pointer"
+                  className="w-4 h-4 rounded border-input cursor-pointer"
                 />
-                <span className="text-sm font-medium text-foreground group-hover:text-foreground/70 transition-colors">
+                <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
                   Unread Only
                 </span>
               </label>
@@ -451,51 +458,110 @@ export default function AnnouncementsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredAnnouncements.map((announcement) => {
+            const unread = isUnread(announcement)
+            const isNewAnnouncement = isNew(announcement)
+
             return (
               <Card
                 key={announcement.id}
-                className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-border/40 overflow-hidden bg-card hover:border-border/60"
+                className={`group cursor-pointer hover:shadow-lg transition-all duration-300 overflow-hidden bg-card hover:border-primary/50 ${
+                  unread ? "border-primary/30 shadow-md" : "border-border/40"
+                }`}
                 onClick={() => {
                   setSelectedAnnouncement(announcement)
                   markAsRead(announcement.id)
                 }}
               >
-                <div className="p-6">
-                  <h3 className="text-xl font-serif font-medium text-foreground leading-snug text-balance group-hover:text-foreground/80 transition-colors">
+                <div className="p-5 space-y-4">
+                  {/* Header with badges */}
+                  <div className="flex items-start justify-between gap-3">
+                    <Badge
+                      variant="outline"
+                      className={`${getCategoryColor(announcement.category)} text-xs font-medium px-2.5 py-1 shrink-0`}
+                    >
+                      {getCategoryIcon(announcement.category)} {announcement.category}
+                    </Badge>
+
+                    <div className="flex items-center gap-1.5">
+                      {announcement.isPinned && (
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5 flex items-center gap-1">
+                          <Pin className="w-3 h-3" />
+                        </Badge>
+                      )}
+                      {isNewAnnouncement && (
+                        <Badge className="text-xs px-2 py-0.5 bg-primary text-primary-foreground">New</Badge>
+                      )}
+                      {unread && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-lg font-semibold text-foreground leading-snug text-balance group-hover:text-primary transition-colors line-clamp-2">
                     {announcement.title}
                   </h3>
+
+                  {/* Summary */}
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                    {announcement.summary || announcement.message}
+                  </p>
+
+                  {/* Footer with metadata */}
+                  <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{announcement.createdAt?.toDate().toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {announcement.attachments && announcement.attachments.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Paperclip className="w-3.5 h-3.5" />
+                          <span>{announcement.attachments.length}</span>
+                        </div>
+                      )}
+                      {announcement.isImportant && (
+                        <Badge variant="destructive" className="text-xs px-2 py-0.5">
+                          Important
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </Card>
             )
           })}
 
           {filteredAnnouncements.length === 0 && (
-            <div className="col-span-full text-center py-24">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/30 mb-6">
-                <Bell className="w-10 h-10 text-muted-foreground/40" />
+            <div className="col-span-full text-center py-20">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+                <Bell className="w-8 h-8 text-muted-foreground/50" />
               </div>
-              <p className="font-serif text-2xl text-foreground font-light mb-2">No announcements found</p>
-              <p className="text-sm text-muted-foreground">Try adjusting your filters or search query</p>
+              <p className="font-sans text-xl text-foreground font-semibold mb-2">No announcements found</p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                {searchQuery || categoryFilter !== "all" || showUnreadOnly
+                  ? "Try adjusting your filters or search query to see more results"
+                  : "There are no announcements to display at this time"}
+              </p>
             </div>
           )}
         </div>
 
         <Dialog open={!!selectedAnnouncement} onOpenChange={(open) => !open && setSelectedAnnouncement(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl">
-            <DialogHeader className="space-y-6 pb-8 border-b border-border/50">
-              <div className="space-y-4">
-                <DialogTitle className="font-serif text-4xl font-light leading-tight text-balance pr-8 text-foreground">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="space-y-4 pb-6 border-b">
+              <div className="space-y-3">
+                <DialogTitle className="font-sans text-3xl font-bold leading-tight text-balance pr-8 text-foreground">
                   {selectedAnnouncement?.title}
                 </DialogTitle>
 
-                <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                   <Badge
                     variant="outline"
-                    className={`${getCategoryColor(selectedAnnouncement?.category || "General")} text-xs font-medium px-3 py-1.5 rounded-lg`}
+                    className={`${getCategoryColor(selectedAnnouncement?.category || "General")} text-xs font-medium px-3 py-1`}
                   >
-                    {selectedAnnouncement?.category}
+                    {getCategoryIcon(selectedAnnouncement?.category || "General")} {selectedAnnouncement?.category}
                   </Badge>
 
                   <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
@@ -504,13 +570,13 @@ export default function AnnouncementsPage() {
                   </div>
 
                   {selectedAnnouncement?.isImportant && (
-                    <Badge variant="destructive" className="text-xs px-3 py-1.5 rounded-md">
+                    <Badge variant="destructive" className="text-xs px-3 py-1">
                       Important
                     </Badge>
                   )}
 
                   {selectedAnnouncement?.isPinned && (
-                    <Badge variant="secondary" className="text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5">
+                    <Badge variant="secondary" className="text-xs px-3 py-1 flex items-center gap-1.5">
                       <Pin className="w-3 h-3" />
                       Pinned
                     </Badge>
@@ -519,48 +585,51 @@ export default function AnnouncementsPage() {
               </div>
             </DialogHeader>
 
-            <div className="mt-8 space-y-8">
+            <div className="mt-6 space-y-6">
               {selectedAnnouncement?.image && (
-                <div className="flex justify-center rounded-xl overflow-hidden border border-border/50">
+                <div className="flex justify-center rounded-lg overflow-hidden border">
                   <img
                     src={selectedAnnouncement.image || "/placeholder.svg"}
                     alt="Announcement"
-                    className="max-h-[500px] w-full object-cover"
+                    className="max-h-[400px] w-full object-cover"
                     loading="lazy"
                   />
                 </div>
               )}
 
               {selectedAnnouncement?.attachments && selectedAnnouncement.attachments.length > 0 && (
-                <div className="flex flex-wrap gap-4">
-                  {selectedAnnouncement.attachments.map((url, idx) => {
-                    const isImage = url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)
-                    if (isImage) {
-                      return (
-                        <div key={idx} className="rounded-xl overflow-hidden border border-border/50">
-                          <img
-                            src={url || "/placeholder.svg"}
-                            alt={`Attachment ${idx + 1}`}
-                            className="max-h-72 object-contain"
-                            loading="lazy"
-                          />
-                        </div>
-                      )
-                    } else {
-                      return (
-                        <a
-                          key={idx}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl border border-border/50 hover:bg-muted/30 transition-colors text-sm font-medium text-foreground"
-                        >
-                          <Paperclip className="w-4 h-4" />
-                          Attachment {idx + 1}
-                        </a>
-                      )
-                    }
-                  })}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Attachments</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedAnnouncement.attachments.map((url, idx) => {
+                      const isImage = url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)
+                      if (isImage) {
+                        return (
+                          <div key={idx} className="rounded-lg overflow-hidden border">
+                            <img
+                              src={url || "/placeholder.svg"}
+                              alt={`Attachment ${idx + 1}`}
+                              className="max-h-60 object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        )
+                      } else {
+                        return (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border hover:bg-muted/50 transition-colors text-sm font-medium text-foreground"
+                          >
+                            <Paperclip className="w-4 h-4" />
+                            Attachment {idx + 1}
+                          </a>
+                        )
+                      }
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -569,14 +638,16 @@ export default function AnnouncementsPage() {
                   {selectedAnnouncement?.description || selectedAnnouncement?.summary || selectedAnnouncement?.message}
                 </p>
               </div>
+
+              {selectedAnnouncement?.createdBy && (
+                <div className="pt-4 border-t text-sm text-muted-foreground">
+                  Posted by <span className="font-medium text-foreground">{selectedAnnouncement.createdBy}</span>
+                </div>
+              )}
             </div>
 
-            <div className="mt-10 pt-8 border-t border-border/50 flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedAnnouncement(null)}
-                className="px-10 h-12 text-base font-medium rounded-xl"
-              >
+            <div className="mt-8 pt-6 border-t flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setSelectedAnnouncement(null)} className="px-8 font-medium">
                 Close
               </Button>
             </div>
