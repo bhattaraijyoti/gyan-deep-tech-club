@@ -35,7 +35,7 @@ export default function UserNav({ user }: UserNavProps) {
             <span className="text-2xl font-bold gradient-text">Gyan Tech Club</span>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
