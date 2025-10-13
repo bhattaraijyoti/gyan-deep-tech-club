@@ -62,14 +62,13 @@ export default function UserNav({ user }: UserNavProps) {
           </div>
 
           <div className="lg:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(!isOpen)}
-              className="hover:bg-primary/10"
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
+            <Link href="/profile">
+              <img
+                src={user.photoURL || "/default-avatar.png"}
+                alt="Profile"
+                className="w-10 h-10 rounded-full cursor-pointer transition-transform duration-300 ease-in-out hover:scale-110"
+              />
+            </Link>
           </div>
         </div>
 
