@@ -35,7 +35,7 @@ export default function UserNav({ user }: UserNavProps) {
             <span className="text-2xl font-bold gradient-text">Gyan Tech Club</span>
           </Link>
 
-          <div className="flex items-center space-x-8">
+          <div className="hidden lg:flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -62,13 +62,13 @@ export default function UserNav({ user }: UserNavProps) {
           </div>
 
           <div className="lg:hidden">
-            <Link href="/profile">
-              <img
-                src={user.photoURL || "/default-avatar.png"}
-                alt="Profile"
-                className="w-10 h-10 rounded-full cursor-pointer transition-transform duration-300 ease-in-out hover:scale-110"
-              />
-            </Link>
+            <button
+              aria-label="Toggle menu"
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 rounded-md text-muted-foreground hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
 
