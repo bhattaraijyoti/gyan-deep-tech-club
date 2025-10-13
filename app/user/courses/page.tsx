@@ -134,7 +134,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     const onPlayerReady = () => {
       console.log("✅ Player ready. Resuming from:", savedTime);
       if (savedTime > 0) player.seekTo(savedTime, true);
-      player.pauseVideo();
+      // Removed immediate pauseVideo() call to allow first frame rendering
       intervalRef.current = setInterval(saveProgress, 5000);
     };
 
@@ -172,8 +172,11 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
         playerOptions.playerVars = { ...basePlayerVars };
       }
 
-      player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
-      playerRef.current = player;
+      // Initialize player inside setTimeout to ensure container has layout
+      setTimeout(() => {
+        player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
+        playerRef.current = player;
+      }, 100);
     };
 
     const fetchProgressAndLoad = async () => {
