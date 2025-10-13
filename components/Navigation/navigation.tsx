@@ -4,9 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Menu, X, Code2 } from "lucide-react"
+import { usePathname } from "next/navigation";
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname();
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-border/50">
@@ -22,25 +24,33 @@ export function Navigation() {
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+              className={`text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105 ${
+                pathname === "/" ? "text-primary" : ""
+              }`}
             >
               Home
             </Link>
             <Link
               href="/about"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+              className={`text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105 ${
+                pathname === "/about" ? "text-primary" : ""
+              }`}
             >
               About
             </Link>
             <Link
               href="/resources"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+              className={`text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105 ${
+                pathname === "/resources" ? "text-primary" : ""
+              }`}
             >
               Resources
             </Link>
             <Link
               href="/contact"
-              className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105"
+              className={`text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105 ${
+                pathname === "/contact" ? "text-primary" : ""
+              }`}
             >
               Contact
             </Link>
@@ -63,14 +73,18 @@ export function Navigation() {
           <div className="md:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
             <Link
               href="/"
-              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              className={`block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5 ${
+                pathname === "/" ? "text-primary bg-primary/10" : ""
+              }`}
               onClick={() => setIsOpen(false)}
             >
               Home
             </Link>
             <Link
               href="/about"
-              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              className={`block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5 ${
+                pathname === "/about" ? "text-primary bg-primary/10" : ""
+              }`}
               onClick={() => setIsOpen(false)}
             >
               About
@@ -78,14 +92,18 @@ export function Navigation() {
           
             <Link
               href="/resources"
-              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              className={`block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5 ${
+                pathname === "/resources" ? "text-primary bg-primary/10" : ""
+              }`}
               onClick={() => setIsOpen(false)}
             >
               Resources
             </Link>
             <Link
               href="/contact"
-              className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5"
+              className={`block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5 ${
+                pathname === "/contact" ? "text-primary bg-primary/10" : ""
+              }`}
               onClick={() => setIsOpen(false)}
             >
               Contact

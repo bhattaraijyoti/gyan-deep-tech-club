@@ -59,23 +59,35 @@ export const MultiSelector: React.FC<MultiSelectorProps> = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between text-left "
         >
           <div className="flex flex-wrap gap-1">
             {value.length > 0 ? (
               value.map((v, i) => (
-                <Badge key={i} variant="secondary" className="flex items-center gap-1">
-                  {v}
-                  <button
+                <div
+                  key={i}
+                  className="flex items-center gap-1 bg-secondary px-2 py-1 rounded"
+                >
+                  <span>{v}</span>
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation()
                       onChange(value.filter(item => item !== v))
                     }}
-                    className="ml-1 text-xs hover:text-destructive"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        onChange(value.filter(item => item !== v))
+                      }
+                    }}
+                    className="ml-1 text-xs text-destructive hover:underlin cursor-pointer"
+                    aria-label={`Remove ${v}`}
                   >
                     ×
-                  </button>
-                </Badge>
+                  </span>
+                </div>
               ))
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>

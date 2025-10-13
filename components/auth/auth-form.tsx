@@ -20,7 +20,7 @@ export default function AuthForm() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       if (currentUser) {
-        router.push("/user/dashboard"); // redirect if already signed in
+        router.push("/user"); // redirect if already signed in
       }
     });
     return () => unsubscribe();
@@ -75,7 +75,7 @@ export default function AuthForm() {
       await createUserDocument(user);
 
       setSuccess("Signed in successfully! Redirecting...");
-      router.push("/user/dashboard");
+      router.push("/user");
     } catch (err: any) {
       console.error("Google signup error:", err);
       switch (err.code) {

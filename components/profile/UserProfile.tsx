@@ -5,12 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { MultiSelector } from "@/components/ui/multi-selector"
-import { doc, getDoc, updateDoc } from "firebase/firestore"
+
+import EditProfile from "./EditProfile"
+import { doc, getDoc, updateDoc, collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import {
   LogOut,
@@ -52,17 +49,11 @@ interface UserData {
 }
 
 export default function UserProfile({ user }: UserProfileProps) {
-  const [progress, setProgress] = useState<number | null>(null)
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({
-    about: "",
-    skills: "",
-    interests: "",
-  })
   const [skillOptions, setSkillOptions] = useState<string[]>([])
   const [interestOptions, setInterestOptions] = useState<string[]>([])
   useEffect(() => {
@@ -82,7 +73,6 @@ export default function UserProfile({ user }: UserProfileProps) {
     }
     fetchOptions()
   }, [])
-
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return
@@ -90,12 +80,13 @@ export default function UserProfile({ user }: UserProfileProps) {
       try {
         const userRef = doc(db, "users", user.uid)
         const userSnap = await getDoc(userRef)
-
         if (userSnap.exists()) {
           const data = userSnap.data()
-          setUserData({
+          const userDataObj: UserData = {
             role: data.role || "Student Member",
-            joinedAt: data.joinedAt || new Date().toLocaleDateString(),
+            joinedAt: data.createdAt && data.createdAt.toDate
+              ? data.createdAt.toDate().toISOString().split("T")[0]
+              : data.createdAt?.split("T")[0] || new Date().toISOString().split("T")[0],
             about: data.about || "",
             skills: Array.isArray(data.skills) ? data.skills : [],
             interests: Array.isArray(data.interests) ? data.interests : [],
@@ -104,9 +95,11 @@ export default function UserProfile({ user }: UserProfileProps) {
             totalCourses: data.totalCourses || 0,
             lastActive: data.lastActive || "Recently",
             notificationsEnabled: data.notificationsEnabled ?? true,
-          })
+          }
+          setUserData(userDataObj)
+          setError(null)
         } else {
-          // Create default data if not existing
+          // If user doc doesn't exist
           const defaultData = {
             role: "Student Member",
             joinedAt: new Date().toLocaleDateString(),
@@ -121,10 +114,8 @@ export default function UserProfile({ user }: UserProfileProps) {
           }
           await updateDoc(userRef, defaultData)
           setUserData(defaultData)
+          setError(null)
         }
-        // You can compute real progress later
-        setProgress(65)
-        setError(null)
       } catch (err: any) {
         console.error("Error fetching profile data:", err)
         setError("Failed to load user profile.")
@@ -147,43 +138,10 @@ export default function UserProfile({ user }: UserProfileProps) {
   }
 
   const openEditProfile = () => {
-    setEditForm({
-      about: userData?.about || "",
-      skills: userData?.skills?.join(", ") || "",
-      interests: userData?.interests?.join(", ") || "",
-    })
     setIsEditing(true)
   }
 
-  const handleSaveProfile = async () => {
-    try {
-      const userRef = doc(db, "users", user.uid)
-      const updatedSkills = editForm.skills
-        ? editForm.skills.split(",").map(s => s.trim()).filter(Boolean)
-        : []
-      const updatedInterests = editForm.interests
-        ? editForm.interests.split(",").map(i => i.trim()).filter(Boolean)
-        : []
-
-      await updateDoc(userRef, {
-        about: editForm.about,
-        skills: updatedSkills,
-        interests: updatedInterests,
-      })
-
-      setUserData(prev =>
-        prev
-          ? { ...prev, about: editForm.about, skills: updatedSkills, interests: updatedInterests }
-          : null
-      )
-
-      setIsEditing(false)
-      toast.success("Profile updated successfully!")
-    } catch (error) {
-      console.error("Error updating profile:", error)
-      toast.error("Failed to save profile changes.")
-    }
-  }
+  // Removed handleSaveProfile (editing now handled in EditProfile)
 
   if (loading) return <p className="text-center text-muted-foreground mt-10">Loading profile...</p>
   if (error) return <p className="text-center text-destructive mt-10">{error}</p>
@@ -219,7 +177,7 @@ export default function UserProfile({ user }: UserProfileProps) {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={openEditProfile} variant="outline" size="sm" className="gap-2 bg-transparent">
+                    <Button onClick={openEditProfile} variant="outline" size="sm" className="gap-2 bg-transparent cursor-pointer">
                       <Edit3 className="w-4 h-4" />
                       Edit Profile
                     </Button>
@@ -227,7 +185,7 @@ export default function UserProfile({ user }: UserProfileProps) {
                       onClick={handleLogout}
                       variant="outline"
                       size="sm"
-                      className="gap-2 text-destructive hover:text-destructive bg-transparent"
+                      className="gap-2 bg-red-500 hover:bg-red-600 text-white cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       Logout
@@ -270,52 +228,6 @@ export default function UserProfile({ user }: UserProfileProps) {
                 <p className="text-foreground leading-relaxed">
                   {userData?.about || "No bio added yet. Share something about yourself!"}
                 </p>
-              </CardContent>
-            </Card>
-
-            {/* Learning Progress */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  Learning Progress
-                </CardTitle>
-                <CardDescription>Track your journey and course completion</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Overall Progress */}
-                {progress !== null && (
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-foreground">Overall Progress</span>
-                      <span className="text-sm font-bold text-primary">{progress}%</span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Course Stats */}
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                  <div className="bg-secondary/50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <CheckCircle2 className="w-4 h-4 text-accent" />
-                      <span className="text-sm text-muted-foreground">Completed</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground">{userData?.coursesCompleted || 0}</p>
-                  </div>
-                  <div className="bg-secondary/50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Target className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-muted-foreground">Total Courses</span>
-                    </div>
-                    <p className="text-2xl font-bold text-foreground">{userData?.totalCourses || 0}</p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
 
@@ -363,136 +275,19 @@ export default function UserProfile({ user }: UserProfileProps) {
               </Card>
             )}
           </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            {/* Achievements */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Award className="w-5 h-5 text-accent" />
-                  Achievements
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {userData?.achievements && userData.achievements.length > 0 ? (
-                  <div className="space-y-3">
-                    {userData.achievements.map((achievement, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-3 p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors"
-                      >
-                        <span className="text-2xl">{achievement.icon || "🏆"}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-foreground">{achievement.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{achievement.date}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-sm">Complete courses to earn achievements!</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start gap-2 bg-transparent" size="sm">
-                  <Bell className="w-4 h-4" />
-                  Notification Settings
-                </Button>
-                <Button variant="outline" className="w-full justify-start gap-2 bg-transparent" size="sm">
-                  <Mail className="w-4 h-4" />
-                  Contact Admin
-                </Button>
-                <Separator className="my-2" />
-                <div className="flex items-center justify-between p-2">
-                  <span className="text-sm text-muted-foreground">Email Notifications</span>
-                  <Badge variant={userData?.notificationsEnabled ? "default" : "secondary"}>
-                    {userData?.notificationsEnabled ? "On" : "Off"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Activity Summary */}
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-accent" />
-                    <span>Completed "React Basics" module</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <span>Started "Advanced JavaScript" course</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-chart-2" />
-                    <span>Earned "Quick Learner" badge</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Right Column - Sidebar (empty, progress/activity removed) */}
+          <div className="space-y-6"></div>
         </div>
       </div>
-    <Dialog open={isEditing} onOpenChange={setIsEditing}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="about">About</Label>
-            <Textarea
-              id="about"
-              value={editForm.about}
-              onChange={(e) => setEditForm({ ...editForm, about: e.target.value })}
-              placeholder="Tell us about yourself..."
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="skills">Skills</Label>
-            <MultiSelector
-              id="skills"
-              placeholder="Select or type your skills..."
-              options={skillOptions}
-              value={editForm.skills.split(",").map(s => s.trim()).filter(Boolean)}
-              onChange={(values) => setEditForm({ ...editForm, skills: values.join(", ") })}
-              allowCustom
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="interests">Learning Interests</Label>
-            <MultiSelector
-              id="interests"
-              placeholder="Select or type your interests..."
-              options={interestOptions}
-              value={editForm.interests.split(",").map(i => i.trim()).filter(Boolean)}
-              onChange={(values) => setEditForm({ ...editForm, interests: values.join(", ") })}
-              allowCustom
-            />
-          </div>
-        </div>
-
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-          <Button onClick={handleSaveProfile}>Save Changes</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EditProfile
+      user={user}
+      userData={userData}
+      onUpdate={(newData) =>
+        setUserData((prev) => (prev ? { ...prev, ...newData } : newData))
+      }
+      open={isEditing}
+      onOpenChange={setIsEditing}
+    />
     </div>
   )
 }

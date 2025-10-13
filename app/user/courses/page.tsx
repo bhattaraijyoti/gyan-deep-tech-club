@@ -134,6 +134,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     const onPlayerReady = () => {
       console.log("✅ Player ready. Resuming from:", savedTime);
       if (savedTime > 0) player.seekTo(savedTime, true);
+      player.pauseVideo();
       intervalRef.current = setInterval(saveProgress, 5000);
     };
 
@@ -149,11 +150,11 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       };
 
       if (playlistIdToUse) {
-        playerOptions.playerVars = { listType: "playlist", list: playlistIdToUse, start: startTime };
+        playerOptions.playerVars = { listType: "playlist", list: playlistIdToUse, start: startTime, autoplay: 0 };
         if (videoIdToUse) playerOptions.videoId = videoIdToUse; // start specific video
       } else if (videoIdToUse) {
         playerOptions.videoId = videoIdToUse;
-        playerOptions.playerVars = { start: startTime };
+        playerOptions.playerVars = { start: startTime, autoplay: 0 };
       }
 
       player = new window.YT.Player(containerId, playerOptions);

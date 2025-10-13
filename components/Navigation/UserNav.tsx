@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation"; // <-- import
 import { Button } from "@/components/ui/button";
 import { Menu, X, User as UserIcon } from "lucide-react";
 import { User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 
 interface UserNavProps {
   user: User;
@@ -13,8 +13,16 @@ interface UserNavProps {
 
 export default function UserNav({ user }: UserNavProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname(); // <-- get current path
 
   if (!user) return null;
+
+  const navLinks = [
+    { href: "/user", label: "Dashboard" },
+    { href: "/user/courses", label: "Courses" },
+    { href: "/resources", label: "Resources" },
+    { href: "/user/announcements", label: "Announcements" },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-border/50">
@@ -28,26 +36,24 @@ export default function UserNav({ user }: UserNavProps) {
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/user/dashboard" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
-              Dashboard
-            </Link>
-            <Link href="/user/courses" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
-              Courses
-            </Link>
-            <Link href="/resources" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
-              Resources
-            </Link>
-            <Link href="/user/announcements" className="text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105">
-              Announcements
-            </Link>
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`transition-all duration-300 font-medium text-lg hover:scale-105 ${
+                  pathname === link.href
+                    ? "text-primary" // current page color
+                    : "text-muted-foreground hover:text-primary"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
 
             <div className="relative">
               <Link href="/profile">
                 <img
-                  src={
-                    user.photoURL ||
-                    "/default-avatar.png"
-                  }
+                  src={user.photoURL || "/default-avatar.png"}
                   alt="Profile"
                   className="w-11 h-11 rounded-full cursor-pointer transition-transform duration-300 ease-in-out hover:scale-110"
                 />
@@ -56,7 +62,12 @@ export default function UserNav({ user }: UserNavProps) {
           </div>
 
           <div className="md:hidden">
-            <Button variant="ghost" size="sm" onClick={() => setIsOpen(!isOpen)} className="hover:bg-primary/10">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(!isOpen)}
+              className="hover:bg-primary/10"
+            >
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
           </div>
@@ -64,22 +75,29 @@ export default function UserNav({ user }: UserNavProps) {
 
         {isOpen && (
           <div className="md:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
-            <Link href="/user/dashboard" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
-              Dashboard
-            </Link>
-            <Link href="/user/courses" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
-              Courses
-            </Link>
-            <Link href="/user/announcements" className="block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5" onClick={() => setIsOpen(false)}>
-              Announcements
-            </Link>
-            {/* Link to dynamic profile page (renders UserProfile or AdminProfile) */}
-            <Button asChild className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white mt-4 rounded-xl">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setIsOpen(false)}
+                className={`block transition-colors font-medium py-3 px-4 rounded-lg ${
+                  pathname === link.href
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            <Button
+              asChild
+              className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white mt-4 rounded-xl"
+            >
               <Link href="/profile" onClick={() => setIsOpen(false)}>
                 Profile
               </Link>
             </Button>
-          
           </div>
         )}
       </div>
