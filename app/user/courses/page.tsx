@@ -172,7 +172,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
         playerOptions.playerVars = { ...basePlayerVars };
       }
 
-      player = new window.YT.Player(containerId, playerOptions);
+      player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
       playerRef.current = player;
     };
 
@@ -206,17 +206,9 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   }, [user, validVideoId, validPlaylistId, containerId]);
 
   return (
-    <div
-      id={containerId}
-      className="relative w-full bg-black rounded-lg overflow-hidden shadow-md mx-auto"
-      style={{
-        width: "100%",
-        aspectRatio: "16 / 9",
-        maxWidth: "100%",
-        height: "auto",
-        minHeight: "200px",
-      }}
-    ></div>
+    <div style={{ width: "100%", paddingTop: "56.25%", position: "relative", minHeight: "200px" }}>
+      <div id={`${containerId}-iframe`} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}></div>
+    </div>
   );
 }
 
