@@ -61,7 +61,7 @@ export default function UserNav({ user }: UserNavProps) {
             </div>
           </div>
 
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <Button
               variant="ghost"
               size="sm"
@@ -74,7 +74,7 @@ export default function UserNav({ user }: UserNavProps) {
         </div>
 
         {isOpen && (
-          <div className="md:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
+          <div className="lg:hidden py-6 space-y-4 glass-strong rounded-b-2xl mt-2 animate-scale-in">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
