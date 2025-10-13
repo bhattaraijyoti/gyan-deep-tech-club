@@ -34,7 +34,7 @@ export default function UserHomePage() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gradient-to-r from-[#e0f7fa] to-[#80deea] py-20 px-6 sm:px-12 lg:px-20">
+      <main className="min-h-screen bg-white py-20 px-6 sm:px-12 lg:px-20">
         <div className="max-w-7xl mx-auto space-y-16">
           {/* Header */}
           <header className="text-center max-w-3xl mx-auto space-y-3 mb-16">
@@ -90,7 +90,7 @@ export default function UserHomePage() {
                   </CardHeader>
                   <CardContent className="flex flex-col justify-between flex-grow space-y-6">
                     <p className="text-gray-700">{section.description}</p>
-                    <Button asChild variant="default" className="mt-auto bg-[#00796b] text-white hover:bg-[#004d40] transition-colors">
+                    <Button asChild variant="default" className="mt-auto">
                       <Link href={section.link}>Go</Link>
                     </Button>
                   </CardContent>

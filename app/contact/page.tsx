@@ -14,8 +14,6 @@ import { Mail, MessageSquare, Send, Github, Linkedin, Twitter } from "lucide-rea
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
     subject: "",
     message: "",
   })
@@ -28,16 +26,19 @@ export default function ContactPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
-      if (currentUser) {
-        setFormData((prev) => ({
-          ...prev,
-          name: currentUser.displayName || "",
-          email: currentUser.email || "",
-        }))
-      }
     })
     return () => unsubscribe()
   }, [auth])
+
+  // Update formData when user changes to prefill name and email
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        subject: "",
+        message: "",
+      })
+    }
+  }, [user])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -52,6 +53,14 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to send a message.",
+      })
+      return
+    }
+
     // Basic validation
     if (!formData.subject.trim() || !formData.message.trim()) {
       toast({
@@ -61,10 +70,10 @@ export default function ContactPage() {
       return
     }
 
-    if (!formData.email.trim() || !isValidEmail(formData.email)) {
+    if (!user.email || !isValidEmail(user.email)) {
       toast({
         title: "Invalid Email",
-        description: "Please enter a valid email address.",
+        description: "Your account email is invalid. Please update your email.",
       })
       return
     }
@@ -73,8 +82,9 @@ export default function ContactPage() {
 
     try {
       await addDoc(collection(db, "messages"), {
-        name: formData.name || "Anonymous",
-        email: formData.email,
+        userId: user.uid,
+        name: user.displayName || "Anonymous",
+        email: user.email,
         subject: formData.subject,
         message: formData.message,
         createdAt: Timestamp.now(),
@@ -85,12 +95,11 @@ export default function ContactPage() {
         description: "Thank you for your feedback. We'll get back to you soon.",
       })
 
-      // Reset only subject and message
-      setFormData((prev) => ({
-        ...prev,
+      // Reset subject and message
+      setFormData({
         subject: "",
         message: "",
-      }))
+      })
     } catch (error) {
       console.error("Failed to send message:", error)
       toast({
@@ -114,78 +123,87 @@ export default function ContactPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-          {/* Contact Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Send us a message
-              </CardTitle>
-              <CardDescription>
-                Share your feedback, suggestions, or report any issues you've encountered.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Your full name"
-                    />
+          {/* Contact Form or Login Prompt */}
+          {user ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Send us a message
+                </CardTitle>
+                <CardDescription>
+                  Share your feedback, suggestions, or report any issues you've encountered.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={user.displayName || "Anonymous"}
+                        readOnly
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={user.email || ""}
+                        readOnly
+                      />
+                    </div>
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="subject">Subject</Label>
                     <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
+                      id="subject"
+                      name="subject"
+                      value={formData.subject}
                       onChange={handleChange}
-                      placeholder="your.email@example.com"
+                      placeholder="What's this about?"
                       required
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="subject">Subject</Label>
-                  <Input
-                    id="subject"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    placeholder="What's this about?"
-                    required
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="message">Message</Label>
+                    <Textarea
+                      id="message"
+                      name="message"
+                      value={formData.message}
+                      onChange={handleChange}
+                      placeholder="Tell us more about your feedback or suggestion..."
+                      rows={6}
+                      required
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="message">Message</Label>
-                  <Textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    placeholder="Tell us more about your feedback or suggestion..."
-                    rows={6}
-                    required
-                  />
-                </div>
-
-                <Button type="submit" className="w-full cursor-pointer hover:bg-[#26667F]" disabled={isSubmitting}>
-                  {isSubmitting ? "Sending..." : <>
-                    Send Message
-                    <Send className="ml-2 h-4 w-4" />
-                  </>}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  <Button type="submit" className="w-full cursor-pointer hover:bg-[#26667F]" disabled={isSubmitting}>
+                    {isSubmitting ? "Sending..." : <>
+                      Send Message
+                      <Send className="ml-2 h-4 w-4" />
+                    </>}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Please log in to send a message</CardTitle>
+                <CardDescription>You must be logged in to contact us. Please log in to continue.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">You need to be logged in to send a message through this form.</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Contact Info & Social Links */}
           <div className="space-y-8">

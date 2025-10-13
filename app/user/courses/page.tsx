@@ -142,6 +142,17 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       console.log("📺 Loading player with:", { startTime, videoIdToUse, playlistIdToUse });
       savedTime = startTime;
 
+      // Common playerVars
+      const basePlayerVars: any = {
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        iv_load_policy: 3,
+        fs: 1,
+        start: startTime,
+        autoplay: 0,
+      };
+
       const playerOptions: any = {
         height: "360",
         width: "100%",
@@ -150,11 +161,15 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       };
 
       if (playlistIdToUse) {
-        playerOptions.playerVars = { listType: "playlist", list: playlistIdToUse, start: startTime, autoplay: 0 };
+        playerOptions.playerVars = {
+          ...basePlayerVars,
+          listType: "playlist",
+          list: playlistIdToUse,
+        };
         if (videoIdToUse) playerOptions.videoId = videoIdToUse; // start specific video
       } else if (videoIdToUse) {
         playerOptions.videoId = videoIdToUse;
-        playerOptions.playerVars = { start: startTime, autoplay: 0 };
+        playerOptions.playerVars = { ...basePlayerVars };
       }
 
       player = new window.YT.Player(containerId, playerOptions);

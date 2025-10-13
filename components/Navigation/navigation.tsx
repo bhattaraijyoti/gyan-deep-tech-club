@@ -47,12 +47,12 @@ export function Navigation() {
               Resources
             </Link>
             <Link
-              href="/contact"
+              href="/learning"
               className={`text-muted-foreground hover:text-primary transition-all duration-300 font-medium text-lg hover:scale-105 ${
-                pathname === "/contact" ? "text-primary" : ""
+                pathname === "/learning" ? "text-primary" : ""
               }`}
             >
-              Contact
+              Learning
             </Link>
             <Button
               asChild
@@ -100,13 +100,13 @@ export function Navigation() {
               Resources
             </Link>
             <Link
-              href="/contact"
+              href="/learning"
               className={`block text-muted-foreground hover:text-primary transition-colors font-medium py-3 px-4 rounded-lg hover:bg-primary/5 ${
-                pathname === "/contact" ? "text-primary bg-primary/10" : ""
+                pathname === "/learning" ? "text-primary bg-primary/10" : ""
               }`}
               onClick={() => setIsOpen(false)}
             >
-              Contact
+              Learning
             </Link>
             <Button
               asChild
