@@ -58,6 +58,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [playerVisible, setPlayerVisible] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -98,6 +99,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       if (savedTime > 0) player.seekTo(savedTime, true);
       player.pauseVideo();
       intervalRef.current = setInterval(saveProgress, 5000);
+      setPlayerVisible(true);
     };
 
     const onPlayerStateChange = async (event: any) => {
@@ -152,12 +154,23 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
   // ✅ Fully responsive wrapper using aspect ratio and enforced height for mobile
   return (
-    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+    <div
+      className="relative w-full bg-black rounded-lg overflow-hidden"
+      style={{
+        aspectRatio: "16 / 9",
+        minHeight: "360px",
+        maxHeight: "500px",
+      }}
+    >
+      {!playerVisible && (
+        <div className="absolute inset-0 flex items-center justify-center text-white">
+          <p>Loading video...</p>
+        </div>
+      )}
       <div
         id={`${containerId}-iframe`}
         className="absolute inset-0 w-full h-full"
         style={{
-          minHeight: "200px",
           backgroundColor: "#000",
         }}
       />
@@ -265,7 +278,7 @@ export default function CoursesPage() {
             No courses found matching your search.
           </p>
         ) : (
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:!grid-cols-2 !max-w-[1024px] mx-auto">
             {filteredCourses.map((course) => {
               const validVideos = (course.videos || [])
                 .map((video) => {
