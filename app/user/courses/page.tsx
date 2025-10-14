@@ -52,7 +52,7 @@ function isValidId(id: string | null | undefined): boolean {
 }
 
 /* ===============================
-   YOUTUBE PLAYER (tracks individual video progress)
+   RESPONSIVE YOUTUBE PLAYER
    =============================== */
 function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps) {
   const playerRef = useRef<any>(null);
@@ -60,27 +60,17 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      console.log("👤 Auth state changed:", u ? u.uid : "No user");
-      setUser(u);
-    });
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
   const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
   const validPlaylistId = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
 
-  if (!validVideoId && !validPlaylistId) {
-    console.warn("⚠️ Invalid video or playlist ID:", { videoId, playlistId });
-    return null;
-  }
+  if (!validVideoId && !validPlaylistId) return null;
 
   useEffect(() => {
-    if (!user) {
-      console.warn("⏳ Waiting for user authentication...");
-      return;
-    }
-
+    if (!user) return;
     let player: any;
     const progressId = validVideoId || validPlaylistId || "unknown";
     const progressDocRef = doc(db, "users", user.uid, "progress", progressId);
@@ -91,38 +81,26 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
         const currentTime = player.getCurrentTime();
         if (isNaN(currentTime)) return;
 
-        // Track current video ID even in playlists
         const currentVideoId = player?.getVideoData?.()?.video_id || validVideoId;
-
-        console.log("💾 Saving progress:", { currentVideoId, time: currentTime });
-        try {
-          await setDoc(
-            progressDocRef,
-            { 
-              time: currentTime, 
-              videoId: currentVideoId, 
-              playlistId: validPlaylistId 
-            },
-            { merge: true }
-          );
-          console.log("✅ Saved progress for video:", currentVideoId);
-        } catch (e) {
-          console.error("🔥 Firestore error saving progress:", e);
-        }
+        await setDoc(
+          progressDocRef,
+          {
+            time: currentTime,
+            videoId: currentVideoId,
+            playlistId: validPlaylistId,
+          },
+          { merge: true }
+        );
       }
     };
 
-    const onPlayerStateChange = async (event: any) => {
-      const stateMap: Record<number, string> = {
-        [-1]: "UNSTARTED",
-        [0]: "ENDED",
-        [1]: "PLAYING",
-        [2]: "PAUSED",
-        [3]: "BUFFERING",
-        [5]: "CUED",
-      };
-      console.log("🎬 Player state changed:", stateMap[event.data]);
+    const onPlayerReady = () => {
+      if (savedTime > 0) player.seekTo(savedTime, true);
+      player.pauseVideo();
+      intervalRef.current = setInterval(saveProgress, 5000);
+    };
 
+    const onPlayerStateChange = async (event: any) => {
       if (
         event.data === window.YT.PlayerState.PAUSED ||
         event.data === window.YT.PlayerState.ENDED
@@ -131,83 +109,54 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       }
     };
 
-    const onPlayerReady = () => {
-      console.log("✅ Player ready. Resuming from:", savedTime);
-      if (savedTime > 0) player.seekTo(savedTime, true);
-      player.pauseVideo();
-      intervalRef.current = setInterval(saveProgress, 5000);
-    };
-
     const loadPlayer = (startTime: number, videoIdToUse: string | null, playlistIdToUse: string | null) => {
-      console.log("📺 Loading player with:", { startTime, videoIdToUse, playlistIdToUse });
       savedTime = startTime;
-
-      // Common playerVars
-      const basePlayerVars: any = {
-        controls: 1,
-        modestbranding: 1,
-        rel: 0,
-        iv_load_policy: 3,
-        fs: 1,
-        start: startTime,
-        autoplay: 0,
-      };
-
       const playerOptions: any = {
-        height: "360",
+        height: "100%",
         width: "100%",
-        playerVars: {},
-        events: { onStateChange: onPlayerStateChange, onReady: onPlayerReady },
+        playerVars: {
+          controls: 1,
+          modestbranding: 1,
+          rel: 0,
+          fs: 1,
+          start: startTime,
+          autoplay: 0,
+          listType: playlistIdToUse ? "playlist" : undefined,
+          list: playlistIdToUse || undefined,
+        },
+        events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
       };
-
-      if (playlistIdToUse) {
-        playerOptions.playerVars = {
-          ...basePlayerVars,
-          listType: "playlist",
-          list: playlistIdToUse,
-        };
-        if (videoIdToUse) playerOptions.videoId = videoIdToUse; // start specific video
-      } else if (videoIdToUse) {
-        playerOptions.videoId = videoIdToUse;
-        playerOptions.playerVars = { ...basePlayerVars };
-      }
-
+      if (videoIdToUse) playerOptions.videoId = videoIdToUse;
       player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
       playerRef.current = player;
     };
 
     const fetchProgressAndLoad = async () => {
-      console.log("📂 Fetching saved progress...");
       try {
         const docSnap = await getDoc(progressDocRef);
         const data = docSnap.exists() ? docSnap.data() : null;
         const time = typeof data?.time === "number" ? data.time : 0;
-        const savedVideoId = isValidId(data?.videoId) ? data.videoId : validVideoId;
-        const savedPlaylistId = isValidId(data?.playlistId) ? data.playlistId : validPlaylistId;
-        console.log("🕓 Existing progress data:", data);
-        loadPlayer(time, savedVideoId || validVideoId, savedPlaylistId);
-      } catch (e) {
-        console.error("⚠️ Error fetching progress:", e);
+        loadPlayer(time, validVideoId, validPlaylistId);
+      } catch {
         loadPlayer(0, validVideoId, validPlaylistId);
       }
     };
 
-    console.log("🌐 Loading YouTube API...");
-    loadYouTubeAPI().then(() => {
-      console.log("✅ YouTube API ready!");
-      fetchProgressAndLoad();
-    });
+    loadYouTubeAPI().then(fetchProgressAndLoad);
 
     return () => {
-      console.log("🧹 Cleaning up player and intervals...");
       if (player) player.destroy();
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [user, validVideoId, validPlaylistId, containerId]);
 
+  // ✅ Fully responsive wrapper using aspect ratio
   return (
-    <div style={{ width: "100%", paddingTop: "56.25%", position: "relative", minHeight: "200px" }}>
-      <div id={`${containerId}-iframe`} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}></div>
+    <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+      <div
+        id={`${containerId}-iframe`}
+        className="absolute top-0 left-0 w-full h-full rounded-lg overflow-hidden"
+      ></div>
     </div>
   );
 }
@@ -229,7 +178,7 @@ function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: 
       const vid = url.pathname.slice(1);
       return { videoId: isValid(vid) ? vid : null, playlistId: null };
     }
-    return { videoId: null, playlistId: isValid(url.searchParams.get("list")) ? url.searchParams.get("list") : null };
+    return { videoId: null, playlistId: null };
   } catch {
     return { videoId: null, playlistId: null };
   }
@@ -247,11 +196,8 @@ export default function CoursesPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.replace("/unauthorized");
-      }
+      if (currentUser) setUser(currentUser);
+      else router.replace("/unauthorized");
     });
     return () => unsubscribe();
   }, [router]);
@@ -259,33 +205,33 @@ export default function CoursesPage() {
   useEffect(() => {
     if (!user) return;
     const fetchCourses = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "courses"));
-        const courseList: Course[] = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Course[];
-        setCourses(courseList);
-      } finally {
-        setLoading(false);
-      }
+      const querySnapshot = await getDocs(collection(db, "courses"));
+      const courseList: Course[] = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Course[];
+      setCourses(courseList);
+      setLoading(false);
     };
     fetchCourses();
   }, [user]);
 
-  const filteredCourses = courses.filter((course) =>
-    course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.language.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCourses = courses.filter(
+    (course) =>
+      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.language.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <main className="min-h-screen bg-gray-50 py-16 px-6 sm:px-10 lg:px-12">
+    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-8 lg:px-12">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <header className="text-center max-w-4xl mx-auto space-y-2">
-          <h1 className="text-4xl sm:text-5xl font-bold text-[#26667F]">Courses & Learning</h1>
-          <p className="text-gray-600 text-lg max-w-xl mx-auto">
-            Discover a variety of courses to enhance your skills. Search and explore courses by title or language.
+        <header className="text-center space-y-2 px-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#26667F]">
+            Courses & Learning
+          </h1>
+          <p className="text-gray-600 text-base sm:text-lg max-w-xl mx-auto">
+            Discover a variety of courses to enhance your skills. Search and explore by title or language.
           </p>
         </header>
 
@@ -293,56 +239,68 @@ export default function CoursesPage() {
         <div className="max-w-md mx-auto relative">
           <Input
             type="search"
-            placeholder="Search courses by title or language..."
+            placeholder="Search courses..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pr-10"
           />
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+          <Search
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={20}
+          />
         </div>
 
-        {/* Loading */}
+        {/* Loading / Results */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <Loader2 className="animate-spin text-[#26667F]" size={48} />
             <p className="text-gray-600 text-lg">Loading courses...</p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <p className="text-center text-gray-600 text-lg">No courses found matching your search.</p>
+          <p className="text-center text-gray-600 text-lg">
+            No courses found matching your search.
+          </p>
         ) : (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => {
               const validVideos = (course.videos || [])
                 .map((video) => {
                   const { videoId, playlistId } = parseYouTubeUrl(video.trim());
-                  if (videoId || playlistId) return { videoId: videoId ?? null, playlistId: playlistId ?? null };
+                  if (videoId || playlistId) return { videoId, playlistId };
                   return null;
                 })
-                .filter((v) => v !== null) as { videoId: string | null; playlistId: string | null }[];
+                .filter((v) => v !== null) as {
+                videoId: string | null;
+                playlistId: string | null;
+              }[];
 
               return (
-                <Card key={course.id} className="hover:shadow-lg transition-shadow duration-300 flex flex-col">
-                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
-                    <CardTitle className="text-lg font-semibold text-[#26667F]">{course.title}</CardTitle>
-                    <Badge variant="secondary" className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
+                <Card
+                  key={course.id}
+                  className="hover:shadow-lg transition-shadow duration-300 flex flex-col"
+                >
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
+                    <CardTitle className="text-lg font-semibold text-[#26667F]">
+                      {course.title}
+                    </CardTitle>
+                    <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
                       {course.language}
                     </Badge>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {validVideos.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">No valid videos available for this course.</p>
+                      <p className="text-gray-500 text-center py-8">
+                        No valid videos available for this course.
+                      </p>
                     ) : (
-                      <div className="space-y-4">
-                        {validVideos.map(({ videoId, playlistId }, index) => (
-                          <div key={index} className="w-full aspect-video rounded-lg shadow-sm overflow-hidden border border-gray-200">
-                            <YouTubePlayer
-                              containerId={`player-${course.id}-${index}`}
-                              videoId={videoId}
-                              playlistId={playlistId}
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      validVideos.map(({ videoId, playlistId }, index) => (
+                        <YouTubePlayer
+                          key={index}
+                          containerId={`player-${course.id}-${index}`}
+                          videoId={videoId}
+                          playlistId={playlistId}
+                        />
+                      ))
                     )}
                   </CardContent>
                 </Card>
