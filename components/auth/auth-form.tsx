@@ -1,30 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "@/lib/firebase";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, Chrome, XCircle } from "lucide-react";
-import { Button } from "react-day-picker";
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from "../ui/card";
+import { Button } from "react-day-picker";
 
 export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [user, setUser] = useState<any>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      if (currentUser) {
-        router.push("/user"); // redirect if already signed in
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
 
   // ---------------- CREATE FIRESTORE USER ONLY IF NOT EXIST ----------------
   const createUserDocument = async (user: any) => {
@@ -33,32 +23,29 @@ export default function AuthForm() {
     const userRef = doc(db, "users", user.uid);
     const docSnap = await getDoc(userRef);
 
-    if (!docSnap.exists()) {
-      const now = new Date().toISOString();
-      const userData = {
-        uid: user.uid,
-        displayName: user.displayName || "",
-        email: user.email,
-        photoURL: user.photoURL || "",
-        createdAt: now,
-        lastActive: now,
-        provider: user.providerData[0]?.providerId || "google",
-        roleType: ["student"], // default role only for new users
-      };
-      try {
-        await setDoc(userRef, userData, { merge: true });
-        console.log("✅ User created with default role");
-      } catch (err) {
-        console.error("Error creating user document:", err);
-      }
-    } else {
-      // Existing user: update lastActive
-      try {
-        await updateDoc(userRef, { lastActive: new Date().toISOString() });
+    const now = new Date().toISOString();
+    const userData = {
+      uid: user.uid,
+      displayName: user.displayName || "",
+      email: user.email,
+      photoURL: user.photoURL || "",
+      createdAt: now,
+      lastActive: now,
+      provider: user.providerData[0]?.providerId || "google",
+      roleType: ["student"], // default role only for new users
+    };
+
+    try {
+      if (!docSnap.exists()) {
+        await setDoc(userRef, userData);
+        console.log("✅ New user created in Firestore:", user.uid);
+      } else {
+        await updateDoc(userRef, { lastActive: now });
         console.log("🔄 Existing user logged in, roles preserved:", docSnap.data()?.roleType);
-      } catch (err) {
-        console.error("Error updating lastActive:", err);
       }
+    } catch (err) {
+      console.error("❌ Firestore write failed:", err);
+      throw err;
     }
   };
 
@@ -69,13 +56,14 @@ export default function AuthForm() {
     setSuccess("");
 
     try {
+      // Optional: sign out previous user to prevent session conflicts
+      if (auth.currentUser) await signOut(auth);
+
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       if (!user) throw new Error("No user returned from Google.");
 
-      setUser(user);
-
-      // ✅ Only create Firestore doc if missing, do NOT overwrite roles
+      // Create or update Firestore document
       await createUserDocument(user);
 
       setSuccess("Signed in successfully! Redirecting...");
