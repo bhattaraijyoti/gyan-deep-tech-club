@@ -1,73 +1,69 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { auth, firestore } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 interface AuthGuardProps {
-  children: React.ReactNode
-  requiredRole?: "admin"
+  children: React.ReactNode;
+  requiredRole?: "admin";
 }
 
 export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userRoleTypes, setUserRoleTypes] = useState<string[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [loading, setLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
-        router.push("/join")
-        return
+        router.replace("/join");
+        setLoading(false);
+        return;
       }
-      setUserId(user.uid)
 
       try {
-        const userDoc = await getDoc(doc(firestore, "users", user.uid))
-        if (userDoc.exists()) {
-          const data = userDoc.data()
-          let roleTypes: string[] = []
+        const userRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userRef);
 
-          if (Array.isArray(data.roleType) && data.roleType.length > 0) {
-            roleTypes = data.roleType
-          }
+        if (!userDoc.exists()) {
+          // Firestore user doc missing → redirect to choose role
+          console.log("User doc missing, redirecting to /choose-role");
+          router.replace("/choose-role");
+          setLoading(false);
+          return;
+        }
 
-          setUserRoleTypes(roleTypes)
+        const data = userDoc.data();
+        const roles = Array.isArray(data?.roleType) ? data.roleType : [];
 
-          if (
-            requiredRole &&
-            !roleTypes.includes("admin")
-          ) {
-            router.push("/unauthorized")
-          }
+        if (requiredRole && !roles.includes(requiredRole)) {
+          router.replace("/unauthorized");
         } else {
-          // No Firestore profile yet → send to choose-role
-          router.push("/choose-role")
+          setIsAuthorized(true);
         }
       } catch (err) {
-        console.error("Auth check failed:", err)
-        router.push("/join")
+        console.error("AuthGuard Error:", err);
+        router.replace("/login");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    })
+    });
 
-    return () => unsubscribe()
-  }, [requiredRole, router])
+    return () => unsubscribe();
+  }, [requiredRole, router]);
 
-  if (loading || !userId || !userRoleTypes) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Checking authentication...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  return <>{children}</>
+  return isAuthorized ? <>{children}</> : null;
 }

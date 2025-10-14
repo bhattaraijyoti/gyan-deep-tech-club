@@ -53,8 +53,12 @@ export default function AuthForm() {
       }
     } else {
       // Existing user: update lastActive
-      await updateDoc(userRef, { lastActive: new Date().toISOString() });
-      console.log("🔄 Existing user logged in, roles preserved:", docSnap.data()?.roleType);
+      try {
+        await updateDoc(userRef, { lastActive: new Date().toISOString() });
+        console.log("🔄 Existing user logged in, roles preserved:", docSnap.data()?.roleType);
+      } catch (err) {
+        console.error("Error updating lastActive:", err);
+      }
     }
   };
 
