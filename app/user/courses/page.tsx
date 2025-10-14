@@ -150,13 +150,17 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     };
   }, [user, validVideoId, validPlaylistId, containerId]);
 
-  // ✅ Fully responsive wrapper using aspect ratio
+  // ✅ Fully responsive wrapper using aspect ratio and enforced height for mobile
   return (
-    <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
+    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
       <div
         id={`${containerId}-iframe`}
-        className="absolute top-0 left-0 w-full h-full rounded-lg overflow-hidden"
-      ></div>
+        className="absolute inset-0 w-full h-full"
+        style={{
+          minHeight: "200px",
+          backgroundColor: "#000",
+        }}
+      />
     </div>
   );
 }
