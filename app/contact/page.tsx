@@ -19,6 +19,7 @@ export default function ContactPage() {
   })
   const [user, setUser] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
   const { toast } = useToast()
   const auth = getAuth()
 
@@ -94,6 +95,9 @@ export default function ContactPage() {
         title: "Message sent!",
         description: "Thank you for your feedback. We'll get back to you soon.",
       })
+
+      setSent(true);
+      setTimeout(() => setSent(false), 4000);
 
       // Reset subject and message
       setFormData({
@@ -190,6 +194,11 @@ export default function ContactPage() {
                       <Send className="ml-2 h-4 w-4" />
                     </>}
                   </Button>
+                  {sent && (
+                    <p className="text-green-600 text-center mt-4 animate-fade-in">
+                      ✅ Your message has been sent successfully!
+                    </p>
+                  )}
                 </form>
               </CardContent>
             </Card>
@@ -250,6 +259,15 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
+    <style jsx>{`
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
     </main>
   )
 }

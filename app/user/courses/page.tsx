@@ -152,13 +152,20 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
   // ✅ Fully responsive wrapper using aspect ratio and enforced height for mobile
   return (
-    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+    <div
+      className="relative w-full bg-black rounded-lg overflow-hidden"
+      style={{
+        aspectRatio: "16 / 9",
+        minHeight: "220px", // ✅ ensure height on mobile
+        maxHeight: "80vh",
+      }}
+    >
       <div
         id={`${containerId}-iframe`}
         className="absolute inset-0 w-full h-full"
         style={{
-          minHeight: "200px",
           backgroundColor: "#000",
+          minHeight: "220px", // ✅ prevents collapse (black screen)
         }}
       />
     </div>
