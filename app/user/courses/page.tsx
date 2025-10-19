@@ -58,6 +58,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -95,9 +96,38 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
     };
 
     const onPlayerReady = () => {
-      if (savedTime > 0) player.seekTo(savedTime, true);
-      player.pauseVideo();
-      intervalRef.current = setInterval(saveProgress, 5000);
+      const waitUntilPlayable = () => {
+        try {
+          const duration = player?.getDuration?.();
+          if (duration && duration > 0) {
+            // ✅ The player is fully ready
+            if (savedTime > 0) {
+              player.seekTo(savedTime, true);
+              setTimeout(() => {
+                player.pauseVideo(); // ensures visible first frame
+              }, 300);
+            } else {
+              player.pauseVideo();
+            }
+            setLoading(false);
+            intervalRef.current = setInterval(saveProgress, 5000);
+          } else {
+            setTimeout(waitUntilPlayable, 200); // keep waiting until video is really loaded
+          }
+        } catch {
+          setTimeout(waitUntilPlayable, 200);
+        }
+      };
+
+      waitUntilPlayable();
+
+      // 🩵 Safety re-seek for mobile browsers (prevents black frame)
+      setTimeout(() => {
+        if (savedTime > 0 && player?.seekTo) {
+          player.seekTo(savedTime, true);
+          player.pauseVideo();
+        }
+      }, 2000);
     };
 
     const onPlayerStateChange = async (event: any) => {
@@ -119,16 +149,21 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
           modestbranding: 1,
           rel: 0,
           fs: 1,
-          start: startTime,
           autoplay: 0,
+          start: startTime,
+          playsinline: 1, // ✅ enables inline mobile playback
+          origin: window.location.origin,
+          enablejsapi: 1,
           listType: playlistIdToUse ? "playlist" : undefined,
           list: playlistIdToUse || undefined,
         },
         events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
       };
       if (videoIdToUse) playerOptions.videoId = videoIdToUse;
-      player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
-      playerRef.current = player;
+      setTimeout(() => {
+        player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
+        playerRef.current = player;
+      }, 400);
     };
 
     const fetchProgressAndLoad = async () => {
@@ -144,30 +179,35 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
     loadYouTubeAPI().then(fetchProgressAndLoad);
 
+    const handleResize = () => {
+      if (window.innerWidth <= 768) {
+        if (player) {
+          player.destroy();
+          setLoading(true);
+          fetchProgressAndLoad();
+        }
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+
     return () => {
       if (player) player.destroy();
       if (intervalRef.current) clearInterval(intervalRef.current);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
     };
   }, [user, validVideoId, validPlaylistId, containerId]);
 
-  // ✅ Fully responsive wrapper using aspect ratio and enforced height for mobile
   return (
-    <div
-      className="relative w-full bg-black rounded-lg overflow-hidden"
-      style={{
-        aspectRatio: "16 / 9",
-        minHeight: "220px", // ✅ ensure height on mobile
-        maxHeight: "80vh",
-      }}
-    >
-      <div
-        id={`${containerId}-iframe`}
-        className="absolute inset-0 w-full h-full"
-        style={{
-          backgroundColor: "#000",
-          minHeight: "220px", // ✅ prevents collapse (black screen)
-        }}
-      />
+    <div className="yt-wrapper flex items-center justify-center bg-black rounded-lg overflow-hidden">
+      {loading && (
+        <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
+          Loading video...
+        </p>
+      )}
+      <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />
     </div>
   );
 }
