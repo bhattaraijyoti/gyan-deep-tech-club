@@ -59,10 +59,28 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.25 } // 25% visible triggers load
+    );
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
@@ -72,6 +90,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
   useEffect(() => {
     if (!user) return;
+    if (!isVisible) return;
     let player: any;
     const progressId = validVideoId || validPlaylistId || "unknown";
     const progressDocRef = doc(db, "users", user.uid, "progress", progressId);
@@ -163,6 +182,14 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       setTimeout(() => {
         player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
         playerRef.current = player;
+        // ✅ Ensure fullscreen works on mobile + iPad
+        const iframe = document.getElementById(`${containerId}-iframe`) as HTMLIFrameElement | null;
+        if (iframe) {
+          iframe.setAttribute("allow", "fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture");
+          iframe.setAttribute("allowfullscreen", "true");
+          iframe.setAttribute("webkitallowfullscreen", "true"); // for Safari
+          iframe.setAttribute("mozallowfullscreen", "true"); // for Firefox mobile
+        }
       }, 400);
     };
 
@@ -198,16 +225,16 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleResize);
     };
-  }, [user, validVideoId, validPlaylistId, containerId]);
+  }, [user, validVideoId, validPlaylistId, containerId, isVisible]);
 
   return (
-    <div className="yt-wrapper flex items-center justify-center bg-black rounded-lg overflow-hidden">
+    <div ref={containerRef} className="yt-wrapper flex items-center justify-center bg-black rounded-lg overflow-hidden">
       {loading && (
         <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
           Loading video...
         </p>
       )}
-      <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />
+      {isVisible && <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />}
     </div>
   );
 }
@@ -274,7 +301,7 @@ export default function CoursesPage() {
   );
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-8 lg:px-12">
+    <main className="min-h-screen bg-gray-50 py-8 px-3 sm:px-6 lg:px-10 transition-all duration-300">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <header className="text-center space-y-2 px-2">
@@ -287,7 +314,7 @@ export default function CoursesPage() {
         </header>
 
         {/* Search */}
-        <div className="max-w-md mx-auto relative">
+        <div className="max-w-md mx-auto relative z-20">
           <Input
             type="search"
             placeholder="Search courses..."
@@ -312,52 +339,55 @@ export default function CoursesPage() {
             No courses found matching your search.
           </p>
         ) : (
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => {
-              const validVideos = (course.videos || [])
-                .map((video) => {
-                  const { videoId, playlistId } = parseYouTubeUrl(video.trim());
-                  if (videoId || playlistId) return { videoId, playlistId };
-                  return null;
-                })
-                .filter((v) => v !== null) as {
-                videoId: string | null;
-                playlistId: string | null;
-              }[];
+          <div className="pb-10">
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredCourses.map((course) => {
+                const validVideos = (course.videos || [])
+                  .map((video) => {
+                    const { videoId, playlistId } = parseYouTubeUrl(video.trim());
+                    if (videoId || playlistId) return { videoId, playlistId };
+                    return null;
+                  })
+                  .filter((v) => v !== null) as {
+                  videoId: string | null;
+                  playlistId: string | null;
+                }[];
 
-              return (
-                <Card
-                  key={course.id}
-                  className="hover:shadow-lg transition-shadow duration-300 flex flex-col"
-                >
-                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
-                    <CardTitle className="text-lg font-semibold text-[#26667F]">
-                      {course.title}
-                    </CardTitle>
-                    <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
-                      {course.language}
-                    </Badge>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {validVideos.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">
-                        No valid videos available for this course.
-                      </p>
-                    ) : (
-                      validVideos.map(({ videoId, playlistId }, index) => (
-                        <YouTubePlayer
-                          key={index}
-                          containerId={`player-${course.id}-${index}`}
-                          videoId={videoId}
-                          playlistId={playlistId}
-                        />
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </section>
+                return (
+                  <Card
+                    key={course.id}
+                    className="hover:shadow-md transition-transform duration-200 flex flex-col rounded-lg bg-white border border-gray-100"
+                  >
+                    <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <CardTitle className="text-lg font-semibold text-[#26667F]">
+                        {course.title}
+                      </CardTitle>
+                      <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
+                        {course.language}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {validVideos.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">
+                          No valid videos available for this course.
+                        </p>
+                      ) : (
+                        validVideos.map(({ videoId, playlistId }, index) => (
+                          <div key={index} className="relative min-h-[240px] sm:min-h-[260px] bg-black rounded-lg overflow-hidden">
+                            <YouTubePlayer
+                              containerId={`player-${course.id}-${index}`}
+                              videoId={videoId}
+                              playlistId={playlistId}
+                            />
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </section>
+          </div>
         )}
       </div>
     </main>
