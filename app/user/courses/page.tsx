@@ -57,9 +57,9 @@ function isValidId(id: string | null | undefined): boolean {
 function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps) {
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
           }
         });
       },
-      { threshold: 0.25 } // 25% visible triggers load
+      { threshold: 0.25 }
     );
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
@@ -85,12 +85,11 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
   const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
   const validPlaylistId = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
-
   if (!validVideoId && !validPlaylistId) return null;
 
   useEffect(() => {
-    if (!user) return;
-    if (!isVisible) return;
+    if (!user || !isVisible || !containerRef.current) return;
+
     let player: any;
     const progressId = validVideoId || validPlaylistId || "unknown";
     const progressDocRef = doc(db, "users", user.uid, "progress", progressId);
@@ -100,15 +99,10 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       if (player && player.getCurrentTime) {
         const currentTime = player.getCurrentTime();
         if (isNaN(currentTime)) return;
-
         const currentVideoId = player?.getVideoData?.()?.video_id || validVideoId;
         await setDoc(
           progressDocRef,
-          {
-            time: currentTime,
-            videoId: currentVideoId,
-            playlistId: validPlaylistId,
-          },
+          { time: currentTime, videoId: currentVideoId, playlistId: validPlaylistId },
           { merge: true }
         );
       }
@@ -119,28 +113,23 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
         try {
           const duration = player?.getDuration?.();
           if (duration && duration > 0) {
-            // ✅ The player is fully ready
             if (savedTime > 0) {
               player.seekTo(savedTime, true);
-              setTimeout(() => {
-                player.pauseVideo(); // ensures visible first frame
-              }, 300);
+              setTimeout(() => player.pauseVideo(), 300);
             } else {
               player.pauseVideo();
             }
             setLoading(false);
             intervalRef.current = setInterval(saveProgress, 5000);
           } else {
-            setTimeout(waitUntilPlayable, 200); // keep waiting until video is really loaded
+            setTimeout(waitUntilPlayable, 200);
           }
         } catch {
           setTimeout(waitUntilPlayable, 200);
         }
       };
-
       waitUntilPlayable();
 
-      // 🩵 Safety re-seek for mobile browsers (prevents black frame)
       setTimeout(() => {
         if (savedTime > 0 && player?.seekTo) {
           player.seekTo(savedTime, true);
@@ -160,37 +149,51 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
     const loadPlayer = (startTime: number, videoIdToUse: string | null, playlistIdToUse: string | null) => {
       savedTime = startTime;
-      const playerOptions: any = {
-        height: "100%",
-        width: "100%",
-        playerVars: {
-          controls: 1,
-          modestbranding: 1,
-          rel: 0,
-          fs: 1,
-          autoplay: 0,
-          start: startTime,
-          playsinline: 1, // ✅ enables inline mobile playback
-          origin: window.location.origin,
-          enablejsapi: 1,
-          listType: playlistIdToUse ? "playlist" : undefined,
-          list: playlistIdToUse || undefined,
-        },
-        events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
-      };
-      if (videoIdToUse) playerOptions.videoId = videoIdToUse;
-      setTimeout(() => {
-        player = new window.YT.Player(`${containerId}-iframe`, playerOptions);
-        playerRef.current = player;
-        // ✅ Ensure fullscreen works on mobile + iPad
-        const iframe = document.getElementById(`${containerId}-iframe`) as HTMLIFrameElement | null;
-        if (iframe) {
-          iframe.setAttribute("allow", "fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture");
-          iframe.setAttribute("allowfullscreen", "true");
-          iframe.setAttribute("webkitallowfullscreen", "true"); // for Safari
-          iframe.setAttribute("mozallowfullscreen", "true"); // for Firefox mobile
-        }
-      }, 400);
+      try {
+        const playerOptions: any = {
+          height: "100%",
+          width: "100%",
+          playerVars: {
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            fs: 1,
+            autoplay: 0,
+            start: startTime,
+            playsinline: 1,
+            origin: window.location.origin,
+            enablejsapi: 1,
+            listType: playlistIdToUse ? "playlist" : undefined,
+            list: playlistIdToUse || undefined,
+          },
+          events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
+        };
+        if (videoIdToUse) playerOptions.videoId = videoIdToUse;
+
+        const iframeId = `${containerId}-iframe`;
+        setTimeout(() => {
+          try {
+            player = new window.YT.Player(iframeId, playerOptions);
+            playerRef.current = player;
+            const iframeEl = document.getElementById(iframeId) as HTMLIFrameElement | null;
+            if (iframeEl) {
+              iframeEl.setAttribute(
+                "allow",
+                "fullscreen; autoplay; picture-in-picture; accelerometer; clipboard-write; encrypted-media; gyroscope"
+              );
+              iframeEl.setAttribute("allowfullscreen", "true");
+              iframeEl.setAttribute("webkitallowfullscreen", "true");
+              iframeEl?.setAttribute("playsinline", "1");
+              iframeEl?.setAttribute("allowfullscreen", "");
+              iframeEl?.setAttribute("webkit-playsinline", "true");
+            }
+          } catch (err) {
+            console.error("YT Player init error:", err);
+          }
+        }, 300);
+      } catch (err) {
+        console.error("YT Player setup error:", err);
+      }
     };
 
     const fetchProgressAndLoad = async () => {
@@ -206,29 +209,21 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
 
     loadYouTubeAPI().then(fetchProgressAndLoad);
 
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        if (player) {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (player) {
+        try {
           player.destroy();
-          setLoading(true);
-          fetchProgressAndLoad();
-        }
+        } catch {}
       }
     };
-
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
-
-    return () => {
-      if (player) player.destroy();
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-    };
-  }, [user, validVideoId, validPlaylistId, containerId, isVisible]);
+  }, [user, isVisible, validVideoId, validPlaylistId, containerId]);
 
   return (
-    <div ref={containerRef} className="yt-wrapper flex items-center justify-center bg-black rounded-lg overflow-hidden">
+    <div
+      ref={containerRef}
+      className="yt-wrapper relative aspect-[16/9] w-full bg-black rounded-lg overflow-hidden flex items-center justify-center"
+    >
       {loading && (
         <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
           Loading video...
