@@ -1,6 +1,8 @@
 "use client";
+const YOUTUBE_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
 
 import { useEffect, useState, useRef } from "react";
+import ReactDOM from "react-dom";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, doc, setDoc, getDoc } from "firebase/firestore";
 import { Loader2, Search } from "lucide-react";
@@ -61,6 +63,31 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isVisible, setIsVisible] = useState(false);
+  // --- Fullscreen playlist button state ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showPlaylist, setShowPlaylist] = useState(false);
+
+  const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!containerRef.current) return;
+      const fsElement =
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement;
+      setIsFullscreen(fsElement === containerRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -86,6 +113,59 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
   const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
   const validPlaylistId = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
   if (!validVideoId && !validPlaylistId) return null;
+
+  // Gather all valid videos for playlist overlay
+  let validVideos: { videoId: string; playlistId: string | null }[] = [];
+  if (videoId) {
+    validVideos = [{ videoId, playlistId: null }];
+  } else if (playlistId) {
+    // Could populate with playlist videos if available, fallback to playlistId only
+    validVideos = [{ videoId: "", playlistId }];
+  }
+
+  useEffect(() => {
+    async function fetchPlaylistVideos() {
+      if (!validPlaylistId || !YOUTUBE_API_KEY) return;
+      try {
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${validPlaylistId}&key=${YOUTUBE_API_KEY}`
+        );
+        const data = await response.json();
+        // Debug: log the playlist fetch response
+        console.log("Playlist fetch response:", data);
+        if (!data.items || data.items.length === 0) {
+          console.warn("No videos found via API — using fallback playlist loader.");
+          setPlaylistVideos([
+            {
+              title: "View Playlist on YouTube",
+              videoId: validPlaylistId,
+              thumbnail: "https://img.youtube.com/vi/default.jpg",
+            },
+          ]);
+          return;
+        }
+        setPlaylistVideos(
+          data.items.map((item: any) => ({
+            title: item.snippet.title,
+            videoId: item.snippet.resourceId.videoId,
+            thumbnail: item.snippet.thumbnails?.default?.url,
+          }))
+        );
+      } catch (error) {
+        console.error("Error fetching playlist:", error);
+        // Fallback: show playlist as a single link if fetch fails
+        setPlaylistVideos([
+          {
+            title: "View Playlist on YouTube",
+            videoId: validPlaylistId,
+            thumbnail: "https://img.youtube.com/vi/default.jpg",
+          },
+        ]);
+      }
+    }
+
+    fetchPlaylistVideos();
+  }, [validPlaylistId]);
 
   useEffect(() => {
     if (!user || !isVisible || !containerRef.current) return;
@@ -224,12 +304,69 @@ function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps)
       ref={containerRef}
       className="yt-wrapper relative aspect-[16/9] w-full bg-black rounded-lg overflow-hidden flex items-center justify-center"
     >
+      {/* Playlist Button — visible on all devices */}
+      <button
+        className="absolute top-3 right-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4 sm:right-4"
+        onClick={() => setShowPlaylist(!showPlaylist)}
+      >
+        ▶️ Playlist
+      </button>
+      {/* Playlist Overlay in Portal (Full Playlist) */}
+      {showPlaylist &&
+        typeof document !== "undefined" &&
+        ReactDOM.createPortal(
+          <div
+            className={`fixed left-0 right-0 bg-gray-900 bg-opacity-95 p-3 flex flex-col space-y-2 z-[9999] 
+         ${isFullscreen ? "bottom-0" : "bottom-4"} rounded-md max-h-[50vh] overflow-y-auto transition-all duration-200`}
+          >
+            {/* Always show playlist overlay */}
+            {playlistVideos.length > 0 ? (
+              playlistVideos.map((vid, idx) => (
+                <button
+                  key={vid.videoId}
+                  onClick={() => {
+                    if (playerRef.current?.loadVideoById) {
+                      playerRef.current.loadVideoById(vid.videoId);
+                      setShowPlaylist(false);
+                    }
+                  }}
+                  className="flex items-center gap-3 p-2 rounded bg-[#26667F] hover:bg-[#1f5060] text-white text-sm text-left"
+                >
+                  <img
+                    src={vid.thumbnail}
+                    alt={vid.title}
+                    className="w-12 h-8 rounded-sm object-cover"
+                  />
+                  <span className="whitespace-normal">{vid.title}</span>
+                </button>
+              ))
+            ) : (
+              <a
+                href={`https://www.youtube.com/playlist?list=${validPlaylistId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-2 rounded bg-[#26667F] hover:bg-[#1f5060] text-white text-sm text-left"
+              >
+                <img
+                  src="https://img.youtube.com/vi/default.jpg"
+                  alt="View Playlist on YouTube"
+                  className="w-12 h-8 rounded-sm object-cover"
+                />
+                <span>View Playlist on YouTube</span>
+              </a>
+            )}
+          </div>,
+          document.body
+        )}
+
       {loading && (
         <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
           Loading video...
         </p>
       )}
-      {isVisible && <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />}
+
+      {/* Dedicated mount point for YouTube iframe (not React-managed) */}
+      <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />
     </div>
   );
 }
@@ -367,15 +504,45 @@ export default function CoursesPage() {
                           No valid videos available for this course.
                         </p>
                       ) : (
-                        validVideos.map(({ videoId, playlistId }, index) => (
-                          <div key={index} className="relative min-h-[240px] sm:min-h-[260px] bg-black rounded-lg overflow-hidden">
-                            <YouTubePlayer
-                              containerId={`player-${course.id}-${index}`}
-                              videoId={videoId}
-                              playlistId={playlistId}
-                            />
-                          </div>
-                        ))
+                        validVideos.map(({ videoId, playlistId }, index) => {
+                          const parsedVideos = validVideos.filter((v) => v.videoId);
+                          return (
+                            <div
+                              key={index}
+                              className="relative min-h-[240px] sm:min-h-[260px] bg-black rounded-lg overflow-hidden"
+                            >
+                              {/* Player */}
+                              <YouTubePlayer
+                                containerId={`player-${course.id}-${index}`}
+                                videoId={videoId}
+                                playlistId={playlistId}
+                              />
+                              {/* Mobile Playlist Bar */}
+                              {parsedVideos.length >= 1 && (
+                                <div className="flex flex-wrap justify-center gap-2 mt-2 bg-[#1a1a1a] text-white p-2 rounded-md">
+                                  {parsedVideos.map((vid, vidIndex) => (
+                                    <button
+                                      key={vidIndex}
+                                      onClick={() => {
+                                        const iframe = document.getElementById(
+                                          `player-${course.id}-${index}-iframe`
+                                        ) as HTMLIFrameElement | null;
+
+                                        if (iframe && window.YT && iframe.id) {
+                                          const player = new window.YT.Player(iframe.id);
+                                          if (vid.videoId) player.loadVideoById(vid.videoId);
+                                        }
+                                      }}
+                                      className="px-3 py-2 text-sm rounded bg-[#26667F] hover:bg-[#1f5060] transition"
+                                    >
+                                      {`Video ${vidIndex + 1}`}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
                     </CardContent>
                   </Card>
