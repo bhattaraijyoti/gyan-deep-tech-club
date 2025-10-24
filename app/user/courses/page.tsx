@@ -1,4 +1,3 @@
-// --- GYAN TECH CLUB - Courses Page: Responsive, Robust Playlists, Mobile/iPad Fixes ---
 "use client";
 import { useEffect, useState, useRef } from "react";
 import ReactDOM from "react-dom";
@@ -370,7 +369,7 @@ function YouTubePlayer({
     typeof document !== "undefined"
       ? ReactDOM.createPortal(
           <div
-            className={`fixed top-0 right-0 h-full bg-gray-900 p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300 ${
+            className={`fixed top-0 right-0 h-full bg-white  p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300 ${
               showSidebar ? "translate-x-0" : "translate-x-full"
             } sm:translate-x-0`}
             style={{
@@ -381,26 +380,15 @@ function YouTubePlayer({
             }}
           >
             <div className="flex justify-between items-center mb-3 relative">
-              <h2 className="text-white text-lg font-semibold">Playlist</h2>
+              <h2 className="text-black text-lg font-semibold">Playlist</h2>
               <button
                 type="button"
                 onClick={() => {
-                  // Robustly close sidebar on all devices and force re-render if needed
                   setShowSidebar(false);
-                  // Try to blur focus safely across all platforms
-                  if (typeof document !== "undefined") {
-                    try {
-                      // Blur the active element if possible
-                      const active = document.activeElement as HTMLElement | null;
-                      if (active && typeof active.blur === "function") active.blur();
-                    } catch {}
-                  }
-                  // Force a re-render if sidebar does not close (edge-case for mobile/iPad focus bugs)
-                  setTimeout(() => {
-                    setShowSidebar(false);
-                  }, 10);
+                  setActivePlaylist(null);
+                  setSelectedVideoId(null);
                 }}
-                className="absolute top-0 right-0 text-white text-2xl font-bold z-[10000] p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition cursor-pointer pointer-events-auto"
+                className="top-0 right-0 text-white text-2xl font-bold p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition cursor-pointer pointer-events-auto"
                 aria-label="Close playlist"
               >
                 ×
@@ -415,11 +403,11 @@ function YouTubePlayer({
                     setShowSidebar(false);
                   }}
                   className={`flex items-center gap-2 p-2 rounded ${
-                    v.videoId === currentVideoId ? "bg-[#26667F]" : "hover:bg-gray-700"
+                    v.videoId === currentVideoId ? "bg-[#26667F] text-white" : "hover:bg-gray-700"
                   } transition`}
                 >
                   <img src={v.thumbnail} alt={v.title} className="w-20 h-12 object-cover rounded" />
-                  <span className="text-white text-sm truncate">{v.title}</span>
+                  <span className="truncate text-inherit">{v.title}</span>
                   {typeof videoProgress[v.videoId] === "number" && (
                     <span className="ml-2 text-xs text-gray-300">
                       {Math.floor(videoProgress[v.videoId] / 60)}:
@@ -473,7 +461,7 @@ function YouTubePlayer({
     <div className="w-full">
       <div
         ref={containerRef}
-        className="yt-wrapper relative w-full bg-black rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-video"
+        className="yt-wrapper relative w-full bg-white rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-video"
         style={{
           minHeight: "250px",
           maxWidth: "100%",
@@ -721,3 +709,5 @@ export default function CoursesPage() {
     </main>
   );
 }
+
+
