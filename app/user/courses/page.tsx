@@ -148,7 +148,7 @@ function loadYouTubeAPI(): Promise<void> {
   return youtubeApiReadyPromise;
 }
 
-// --- Responsive YouTubePlayer with Full Playlist Support, Progress Saving, and Mobile/iPad Fixes ---
+// --- Responsive YouTubePlayer with Full Playlist Support, Progress Saving, and Mobile/iPad Fixes (updated component) ---
 function YouTubePlayer({
   playlistId,
   playlistVideos,
@@ -171,20 +171,53 @@ function YouTubePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [currentVideoId, setCurrentVideoId] = useState(initialVideoId);
+  // For dynamic sidebar position
+  const [sidebarSide, setSidebarSide] = useState<'left' | 'right'>('right');
+  // Always use first video if initialVideoId is missing or not in playlistVideos
+  const initialId = playlistVideos.find((v) => v.videoId === initialVideoId)
+    ? initialVideoId
+    : playlistVideos[0]?.videoId || "";
+  const [currentVideoId, setCurrentVideoId] = useState(initialId);
   const [videoProgress, setVideoProgress] = useState<Record<string, number>>({});
+  const [iframeKey, setIframeKey] = useState(0); // force iframe reload for mobile/iPad
 
-  // Find current video index in playlist
-  const currentIndex = playlistVideos.findIndex((v) => v.videoId === currentVideoId);
+  // Detect mobile/iPad/tablet for force reload (user agent check)
+  const isMobileOrTablet =
+    typeof window !== "undefined" &&
+    /android|iphone|ipad|ipod|mobile|tablet/i.test(navigator.userAgent);
 
+  // Always update currentVideoId when initialVideoId changes
   useEffect(() => {
-    setCurrentVideoId(initialVideoId);
-  }, [initialVideoId]);
+    const validInitial =
+      playlistVideos.find((v) => v.videoId === initialVideoId)?.videoId ||
+      playlistVideos[0]?.videoId ||
+      "";
+    setCurrentVideoId(validInitial);
+    // Always force iframe reload on initial video change on mobile/iPad
+    if (isMobileOrTablet) setIframeKey((k) => k + 1);
+    // eslint-disable-next-line
+  }, [initialVideoId, playlistVideos]);
+
+  // On currentVideoId change, force iframe reload on mobile/iPad
+  useEffect(() => {
+    if (isMobileOrTablet) setIframeKey((k) => k + 1);
+    // eslint-disable-next-line
+  }, [currentVideoId]);
+
+  // When playlistVideos load, force iframe reload on mobile/iPad
+  useEffect(() => {
+    if (isMobileOrTablet && playlistVideos.length > 0) {
+      setIframeKey((k) => k + 1);
+    }
+  }, [playlistVideos]);
 
   // --- Save and restore progress per video ---
   useEffect(() => {
     let savedTimes: Record<string, number> = {};
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     const getProgressDocRef = (videoId: string) =>
       doc(db, "users", user.uid, "progress", `${playlistId}:${videoId}`);
     const saveProgressForVideo = async (videoId: string, time: number) => {
@@ -342,7 +375,13 @@ function YouTubePlayer({
       }, 400);
       setTimeout(() => setLoading(false), 500);
     };
-    setupPlayer();
+    if (!isMobileOrTablet) {
+      setLoading(true);
+      setupPlayer();
+    } else {
+      // On mobile/iPad, let iframe reload on key change (see below)
+      setLoading(false);
+    }
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(saveProgress, 5000);
     return () => {
@@ -368,19 +407,53 @@ function YouTubePlayer({
     // eslint-disable-next-line
   }, [playlistId, containerId]);
 
+  // --- Dynamic sidebar position logic ---
+  useEffect(() => {
+    if (!showSidebar) return;
+    // Only run on desktop/tablet, not on mobile/iPad (where sidebar is always right)
+    if (typeof window === "undefined" || window.innerWidth < 640) {
+      setSidebarSide("right");
+      return;
+    }
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      // If most of the player is on the right, show sidebar on far left.
+      if (rect.left > viewportWidth * 0.55) {
+        setSidebarSide("left");
+      }
+      // If most of the player is on the left, show sidebar on far right.
+      else if (rect.right < viewportWidth * 0.45) {
+        setSidebarSide("right");
+      }
+      // If player is near the center, pick the side with more space
+      else {
+        // Distance from left and right edges
+        const leftSpace = rect.left;
+        const rightSpace = viewportWidth - rect.right;
+        setSidebarSide(leftSpace > rightSpace ? "left" : "right");
+      }
+    }
+  }, [showSidebar]);
+
   // Sidebar overlay (portal, always rendered for accessibility)
   const sidebar =
     typeof document !== "undefined"
       ? ReactDOM.createPortal(
           <div
-            className={`fixed top-0 right-0 h-full bg-white  p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300 ${
-              showSidebar ? "translate-x-0" : "translate-x-full"
-            } sm:translate-x-0`}
+            className={`fixed top-0 h-full bg-white p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300
+            ${
+              sidebarSide === "left"
+                ? (showSidebar ? "translate-x-0 left-0 right-auto" : "-translate-x-full left-0 right-auto")
+                : (showSidebar ? "translate-x-0 right-0 left-auto" : "translate-x-full right-0 left-auto")
+            }
+            `}
             style={{
               maxWidth: "100vw",
-              width: "100vw",
+              width: typeof window !== "undefined" && window.innerWidth >= 640 ? "20rem" : "100vw",
               boxSizing: "border-box",
-              ...(typeof window !== "undefined" && window.innerWidth >= 640 ? { width: "20rem" } : {}),
+              left: sidebarSide === "left" ? 0 : "auto",
+              right: sidebarSide === "right" ? 0 : "auto",
             }}
           >
             <div className="flex justify-between items-center mb-3 relative">
@@ -409,6 +482,9 @@ function YouTubePlayer({
                   className={`flex items-center gap-2 p-2 rounded ${
                     v.videoId === currentVideoId ? "bg-[#26667F] text-white" : "hover:bg-gray-700"
                   } transition`}
+                  style={{
+                    outline: v.videoId === currentVideoId ? "2px solid #26667F" : undefined,
+                  }}
                 >
                   <img src={v.thumbnail} alt={v.title} className="w-20 h-12 object-cover rounded" />
                   <span className="truncate text-inherit">{v.title}</span>
@@ -430,7 +506,7 @@ function YouTubePlayer({
   const mobileBar = (
     <div
       className="flex flex-nowrap overflow-x-auto scrollbar-thin justify-start gap-2 mt-2 bg-[#1a1a1a] text-white p-2 rounded-md w-full"
-      style={{ WebkitOverflowScrolling: "touch" }}
+      style={{ WebkitOverflowScrolling: "touch", maxWidth: "100vw" }}
     >
       {playlistVideos.map((v, idx) => (
         <button
@@ -438,10 +514,13 @@ function YouTubePlayer({
           onClick={() => setCurrentVideoId(v.videoId)}
           className={`flex items-center gap-2 px-2 py-1 text-sm rounded ${
             v.videoId === currentVideoId
-              ? "bg-[#26667F]"
+              ? "bg-[#26667F] ring-2 ring-[#26667F] text-white"
               : "bg-gray-700 hover:bg-[#1f5060]"
           } transition whitespace-nowrap`}
-          style={{ minWidth: "120px" }}
+          style={{
+            minWidth: "120px",
+            outline: v.videoId === currentVideoId ? "2px solid #26667F" : undefined,
+          }}
         >
           <img
             src={v.thumbnail}
@@ -460,51 +539,79 @@ function YouTubePlayer({
     </div>
   );
 
-  // Responsive container: min-h-[250px] on mobile/iPad, aspect-video, w-full h-auto
+  // Updated responsive return for mobile/iPad UI
   return (
     <div className="w-full">
       <div
         ref={containerRef}
-        className="yt-wrapper relative w-full bg-white rounded-lg overflow-hidden flex flex-col items-center justify-center aspect-video"
-        style={{
-          minHeight: "250px",
-          maxWidth: "100%",
-          width: "100%",
-          position: "relative",
-        }}
+        className="yt-wrapper relative w-full bg-white rounded-lg overflow-hidden flex flex-col items-center justify-center"
+        style={{ minHeight: "250px", maxWidth: "100%", width: "100%", position: "relative" }}
       >
         {/* Playlist sidebar button */}
         <button
-          className="absolute top-3 right-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4 sm:right-4"
+          className={`absolute top-3 ${
+            sidebarSide === "left" ? "left-3 sm:left-4" : "right-3 sm:right-4"
+          } bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4`}
           onClick={() => setShowSidebar((v) => !v)}
           aria-label="Open playlist"
         >
           ▶️ Playlist
         </button>
-        {/* Playlist sidebar (portal, always rendered for accessibility) */}
+
+        {/* Playlist sidebar */}
         {sidebar}
 
-        {loading && (
-          <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
-            Loading video...
-          </p>
+        {/* Video player */}
+        {isMobileOrTablet ? (
+          playlistVideos.length === 0 ? (
+            <div className="w-full h-64 flex items-center justify-center bg-gray-100 rounded">
+              <Loader2 className="animate-spin text-[#26667F]" size={32} />
+              <span className="ml-2 text-gray-600">Loading playlist...</span>
+            </div>
+          ) : (
+            <iframe
+              key={iframeKey} // force reload when video changes or playlist loads
+              className="yt-iframe w-full aspect-video"
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${currentVideoId}?playlist=${playlistVideos
+                .map((v) => v.videoId)
+                .filter((id) => id !== currentVideoId)
+                .join(",")}&controls=1&rel=0&modestbranding=1&autoplay=0&playsinline=1`}
+              allow="fullscreen; autoplay; picture-in-picture"
+              allowFullScreen
+              style={{ minHeight: "250px", display: "block" }}
+            />
+          )
+        ) : (
+          <div
+            id={`${containerId}-iframe`}
+            className="yt-iframe w-full h-full aspect-video"
+          />
         )}
 
-        <div
-          id={`${containerId}-iframe`}
-          className="yt-iframe absolute top-0 left-0 w-full h-full aspect-video"
-          style={{
-            width: "100%",
-            height: "100%",
-            aspectRatio: "16/9",
-            position: "absolute",
-            top: 0,
-            left: 0,
-          }}
-        />
-
         {/* Mobile playlist bar */}
-        <div className="block sm:hidden w-full mt-2">{mobileBar}</div>
+        <div className="block sm:hidden w-full mt-2">
+          {playlistVideos.map((v, idx) => (
+            <button
+              key={v.videoId || idx}
+              onClick={() => setCurrentVideoId(v.videoId)}
+              className={`flex items-center gap-2 px-2 py-1 text-sm rounded ${
+                v.videoId === currentVideoId
+                  ? "bg-[#26667F] ring-2 ring-[#26667F] text-white"
+                  : "bg-gray-700 hover:bg-[#1f5060]"
+              } transition whitespace-nowrap`}
+              style={{ minWidth: "120px" }}
+            >
+              <img
+                src={v.thumbnail}
+                alt={v.title}
+                className="w-8 h-5 object-cover rounded"
+              />
+              <span className="truncate">{v.title}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -546,33 +653,38 @@ export default function CoursesPage() {
     fetchCourses();
   }, [user]);
 
-  // Fetch playlist videos for all playlists shown
-  useEffect(() => {
-    // Get all unique playlistIds
-    const playlistIds = new Set<string>();
-    for (const course of courses) {
-      for (const url of course.videos || []) {
-        const { playlistId } = parseYouTubeUrl(url);
-        if (playlistId) playlistIds.add(playlistId);
-      }
+// Fetch playlist videos for all playlists shown
+useEffect(() => {
+  // Get all unique playlistIds
+  const playlistIds = new Set<string>();
+  for (const course of courses) {
+    for (const url of course.videos || []) {
+      const { playlistId } = parseYouTubeUrl(url);
+      if (playlistId) playlistIds.add(playlistId);
     }
-    const fetchAll = async () => {
-      const newMap: Record<string, PlaylistVideo[]> = {};
-      await Promise.all(
-        Array.from(playlistIds).map(async (pid) => {
-          if (!playlistMap[pid]) {
+  }
+  const fetchAll = async () => {
+    const newMap: Record<string, PlaylistVideo[]> = {};
+    await Promise.all(
+      Array.from(playlistIds).map(async (pid) => {
+        if (!playlistMap[pid]) {
+          try {
             const vids = await fetchPlaylistVideos(pid);
-            newMap[pid] = vids;
+            // Robust fallback: if no videos found, try to parse from URLs or fallback to empty
+            newMap[pid] = Array.isArray(vids) && vids.length > 0 ? vids : [];
+          } catch {
+            newMap[pid] = [];
           }
-        })
-      );
-      if (Object.keys(newMap).length > 0) {
-        setPlaylistMap((m) => ({ ...m, ...newMap }));
-      }
-    };
-    if (playlistIds.size > 0) fetchAll();
-    // eslint-disable-next-line
-  }, [courses]);
+        }
+      })
+    );
+    if (Object.keys(newMap).length > 0) {
+      setPlaylistMap((m) => ({ ...m, ...newMap }));
+    }
+  };
+  if (playlistIds.size > 0) fetchAll();
+  // eslint-disable-next-line
+}, [courses]);
 
   const filteredCourses = courses.filter(
     (course) =>
@@ -694,8 +806,9 @@ export default function CoursesPage() {
                               playlistId={activePlaylist.playlistId}
                               playlistVideos={playlistMap[activePlaylist.playlistId]}
                               initialVideoId={
-                                selectedVideoId ||
-                                playlistMap[activePlaylist.playlistId][0].videoId
+                                selectedVideoId && playlistMap[activePlaylist.playlistId].some(v => v.videoId === selectedVideoId)
+                                  ? selectedVideoId
+                                  : playlistMap[activePlaylist.playlistId][0].videoId
                               }
                               containerId={`yt-player-${course.id}-${activePlaylist.playlistId}`}
                               user={user}
