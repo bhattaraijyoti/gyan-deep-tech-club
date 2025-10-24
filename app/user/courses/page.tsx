@@ -1,6 +1,5 @@
+// --- GYAN TECH CLUB - Courses Page with Playlists & YouTube Sidebar Overlay ---
 "use client";
-const YOUTUBE_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
-
 import { useEffect, useState, useRef } from "react";
 import ReactDOM from "react-dom";
 import { db, auth } from "@/lib/firebase";
@@ -20,360 +19,13 @@ interface Course {
   createdAt?: any;
 }
 
-interface YouTubePlayerProps {
-  videoId?: string | null;
-  playlistId?: string | null;
-  containerId: string;
-}
+type PlaylistVideo = {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+};
 
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: any;
-  }
-}
-
-let youtubeApiReadyPromise: Promise<void> | null = null;
-function loadYouTubeAPI(): Promise<void> {
-  if (youtubeApiReadyPromise) return youtubeApiReadyPromise;
-  youtubeApiReadyPromise = new Promise<void>((resolve) => {
-    if (window.YT && window.YT.Player) resolve();
-    else {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-      window.onYouTubeIframeAPIReady = () => resolve();
-    }
-  });
-  return youtubeApiReadyPromise;
-}
-
-function isValidId(id: string | null | undefined): boolean {
-  return !!id && /^[a-zA-Z0-9_-]+$/.test(id.trim());
-}
-
-/* ===============================
-   RESPONSIVE YOUTUBE PLAYER
-   =============================== */
-function YouTubePlayer({ videoId, playlistId, containerId }: YouTubePlayerProps) {
-  const playerRef = useRef<any>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
-  // --- Fullscreen playlist button state ---
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showPlaylist, setShowPlaylist] = useState(false);
-
-  const [playlistVideos, setPlaylistVideos] = useState<any[]>([]);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      if (!containerRef.current) return;
-      const fsElement =
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement;
-      setIsFullscreen(fsElement === containerRef.current);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setIsVisible(true);
-            observer.disconnect();
-          }
-        });
-      },
-      { threshold: 0.25 }
-    );
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const validVideoId = isValidId(videoId?.trim() ?? null) ? videoId : null;
-  const validPlaylistId = isValidId(playlistId?.trim() ?? null) ? playlistId : null;
-  if (!validVideoId && !validPlaylistId) return null;
-
-  // Gather all valid videos for playlist overlay
-  let validVideos: { videoId: string; playlistId: string | null }[] = [];
-  if (videoId) {
-    validVideos = [{ videoId, playlistId: null }];
-  } else if (playlistId) {
-    // Could populate with playlist videos if available, fallback to playlistId only
-    validVideos = [{ videoId: "", playlistId }];
-  }
-
-  useEffect(() => {
-    async function fetchPlaylistVideos() {
-      if (!validPlaylistId || !YOUTUBE_API_KEY) return;
-      try {
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${validPlaylistId}&key=${YOUTUBE_API_KEY}`
-        );
-        const data = await response.json();
-        // Debug: log the playlist fetch response
-        console.log("Playlist fetch response:", data);
-        if (!data.items || data.items.length === 0) {
-          console.warn("No videos found via API — using fallback playlist loader.");
-          setPlaylistVideos([
-            {
-              title: "View Playlist on YouTube",
-              videoId: validPlaylistId,
-              thumbnail: "https://img.youtube.com/vi/default.jpg",
-            },
-          ]);
-          return;
-        }
-        setPlaylistVideos(
-          data.items.map((item: any) => ({
-            title: item.snippet.title,
-            videoId: item.snippet.resourceId.videoId,
-            thumbnail: item.snippet.thumbnails?.default?.url,
-          }))
-        );
-      } catch (error) {
-        console.error("Error fetching playlist:", error);
-        // Fallback: show playlist as a single link if fetch fails
-        setPlaylistVideos([
-          {
-            title: "View Playlist on YouTube",
-            videoId: validPlaylistId,
-            thumbnail: "https://img.youtube.com/vi/default.jpg",
-          },
-        ]);
-      }
-    }
-
-    fetchPlaylistVideos();
-  }, [validPlaylistId]);
-
-  useEffect(() => {
-    if (!user || !isVisible || !containerRef.current) return;
-
-    let player: any;
-    const progressId = validVideoId || validPlaylistId || "unknown";
-    const progressDocRef = doc(db, "users", user.uid, "progress", progressId);
-    let savedTime = 0;
-
-    const saveProgress = async () => {
-      if (player && player.getCurrentTime) {
-        const currentTime = player.getCurrentTime();
-        if (isNaN(currentTime)) return;
-        const currentVideoId = player?.getVideoData?.()?.video_id || validVideoId;
-        await setDoc(
-          progressDocRef,
-          { time: currentTime, videoId: currentVideoId, playlistId: validPlaylistId },
-          { merge: true }
-        );
-      }
-    };
-
-    const onPlayerReady = () => {
-      const waitUntilPlayable = () => {
-        try {
-          const duration = player?.getDuration?.();
-          if (duration && duration > 0) {
-            if (savedTime > 0) {
-              player.seekTo(savedTime, true);
-              setTimeout(() => player.pauseVideo(), 300);
-            } else {
-              player.pauseVideo();
-            }
-            setLoading(false);
-            intervalRef.current = setInterval(saveProgress, 5000);
-          } else {
-            setTimeout(waitUntilPlayable, 200);
-          }
-        } catch {
-          setTimeout(waitUntilPlayable, 200);
-        }
-      };
-      waitUntilPlayable();
-
-      setTimeout(() => {
-        if (savedTime > 0 && player?.seekTo) {
-          player.seekTo(savedTime, true);
-          player.pauseVideo();
-        }
-      }, 2000);
-    };
-
-    const onPlayerStateChange = async (event: any) => {
-      if (
-        event.data === window.YT.PlayerState.PAUSED ||
-        event.data === window.YT.PlayerState.ENDED
-      ) {
-        await saveProgress();
-      }
-    };
-
-    const loadPlayer = (startTime: number, videoIdToUse: string | null, playlistIdToUse: string | null) => {
-      savedTime = startTime;
-      try {
-        const playerOptions: any = {
-          height: "100%",
-          width: "100%",
-          playerVars: {
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            fs: 1,
-            autoplay: 0,
-            start: startTime,
-            playsinline: 1,
-            origin: window.location.origin,
-            enablejsapi: 1,
-            listType: playlistIdToUse ? "playlist" : undefined,
-            list: playlistIdToUse || undefined,
-          },
-          events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
-        };
-        if (videoIdToUse) playerOptions.videoId = videoIdToUse;
-
-        const iframeId = `${containerId}-iframe`;
-        setTimeout(() => {
-          try {
-            player = new window.YT.Player(iframeId, playerOptions);
-            playerRef.current = player;
-            const iframeEl = document.getElementById(iframeId) as HTMLIFrameElement | null;
-            if (iframeEl) {
-              iframeEl.setAttribute(
-                "allow",
-                "fullscreen; autoplay; picture-in-picture; accelerometer; clipboard-write; encrypted-media; gyroscope"
-              );
-              iframeEl.setAttribute("allowfullscreen", "true");
-              iframeEl.setAttribute("webkitallowfullscreen", "true");
-              iframeEl?.setAttribute("playsinline", "1");
-              iframeEl?.setAttribute("allowfullscreen", "");
-              iframeEl?.setAttribute("webkit-playsinline", "true");
-            }
-          } catch (err) {
-            console.error("YT Player init error:", err);
-          }
-        }, 300);
-      } catch (err) {
-        console.error("YT Player setup error:", err);
-      }
-    };
-
-    const fetchProgressAndLoad = async () => {
-      try {
-        const docSnap = await getDoc(progressDocRef);
-        const data = docSnap.exists() ? docSnap.data() : null;
-        const time = typeof data?.time === "number" ? data.time : 0;
-        loadPlayer(time, validVideoId, validPlaylistId);
-      } catch {
-        loadPlayer(0, validVideoId, validPlaylistId);
-      }
-    };
-
-    loadYouTubeAPI().then(fetchProgressAndLoad);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (player) {
-        try {
-          player.destroy();
-        } catch {}
-      }
-    };
-  }, [user, isVisible, validVideoId, validPlaylistId, containerId]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="yt-wrapper relative aspect-[16/9] w-full bg-black rounded-lg overflow-hidden flex items-center justify-center"
-    >
-      {/* Playlist Button — visible on all devices */}
-      <button
-        className="absolute top-3 right-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4 sm:right-4"
-        onClick={() => setShowPlaylist(!showPlaylist)}
-      >
-        ▶️ Playlist
-      </button>
-      {/* Playlist Overlay in Portal (Full Playlist) */}
-      {showPlaylist &&
-        typeof document !== "undefined" &&
-        ReactDOM.createPortal(
-          <div
-            className={`fixed left-0 right-0 bg-gray-900 bg-opacity-95 p-3 flex flex-col space-y-2 z-[9999] 
-         ${isFullscreen ? "bottom-0" : "bottom-4"} rounded-md max-h-[50vh] overflow-y-auto transition-all duration-200`}
-          >
-            {/* Always show playlist overlay */}
-            {playlistVideos.length > 0 ? (
-              playlistVideos.map((vid, idx) => (
-                <button
-                  key={vid.videoId}
-                  onClick={() => {
-                    if (playerRef.current?.loadVideoById) {
-                      playerRef.current.loadVideoById(vid.videoId);
-                      setShowPlaylist(false);
-                    }
-                  }}
-                  className="flex items-center gap-3 p-2 rounded bg-[#26667F] hover:bg-[#1f5060] text-white text-sm text-left"
-                >
-                  <img
-                    src={vid.thumbnail}
-                    alt={vid.title}
-                    className="w-12 h-8 rounded-sm object-cover"
-                  />
-                  <span className="whitespace-normal">{vid.title}</span>
-                </button>
-              ))
-            ) : (
-              <a
-                href={`https://www.youtube.com/playlist?list=${validPlaylistId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-2 rounded bg-[#26667F] hover:bg-[#1f5060] text-white text-sm text-left"
-              >
-                <img
-                  src="https://img.youtube.com/vi/default.jpg"
-                  alt="View Playlist on YouTube"
-                  className="w-12 h-8 rounded-sm object-cover"
-                />
-                <span>View Playlist on YouTube</span>
-              </a>
-            )}
-          </div>,
-          document.body
-        )}
-
-      {loading && (
-        <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
-          Loading video...
-        </p>
-      )}
-
-      {/* Dedicated mount point for YouTube iframe (not React-managed) */}
-      <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />
-    </div>
-  );
-}
-
-/* ===============================
-   PARSE YOUTUBE URL
-   =============================== */
+// Parse a YouTube playlist or video URL into ids
 function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: string | null } {
   try {
     const url = new URL(urlStr.trim());
@@ -394,15 +46,385 @@ function parseYouTubeUrl(urlStr: string): { videoId: string | null; playlistId: 
   }
 }
 
-/* ===============================
-   MAIN COURSES PAGE
-   =============================== */
+// Fetch playlist videos by parsing HTML (no API key)
+async function fetchPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]> {
+  try {
+    // Use CORS proxy for YouTube playlist page (for client-side demo only; use your own proxy in prod)
+    const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+    const resp = await fetch(
+      "https://corsproxy.io/?" + encodeURIComponent(url)
+    );
+    const html = await resp.text();
+    // Parse HTML to extract video IDs, titles, and thumbnails
+    const videoPattern = /{"playlistVideoRenderer":(.*?)}\s*[,}]/g;
+    const videos: PlaylistVideo[] = [];
+    let match;
+    while ((match = videoPattern.exec(html))) {
+      try {
+        const obj = JSON.parse(match[1]);
+        const videoId = obj.videoId;
+        const title =
+          obj.title?.runs?.[0]?.text ||
+          obj.title?.simpleText ||
+          `Video ${videos.length + 1}`;
+        const thumbnail =
+          obj.thumbnail?.thumbnails?.[0]?.url ||
+          `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+        if (videoId) {
+          videos.push({ videoId, title, thumbnail });
+        }
+      } catch {}
+    }
+    // If parsing failed, fallback to at least the first 10 thumbnails
+    if (videos.length === 0) {
+      // fallback: try to extract video IDs from URLs
+      const fallbackPattern = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+      let m;
+      const ids: string[] = [];
+      while ((m = fallbackPattern.exec(html))) {
+        if (!ids.includes(m[1])) ids.push(m[1]);
+      }
+      for (const vid of ids.slice(0, 20)) {
+        videos.push({
+          videoId: vid,
+          title: `Video ${videos.length + 1}`,
+          thumbnail: `https://img.youtube.com/vi/${vid}/mqdefault.jpg`,
+        });
+      }
+    }
+    return videos;
+  } catch {
+    return [];
+  }
+}
+
+// Load the YouTube Iframe API
+let youtubeApiReadyPromise: Promise<void> | null = null;
+function loadYouTubeAPI(): Promise<void> {
+  if (youtubeApiReadyPromise) return youtubeApiReadyPromise;
+  youtubeApiReadyPromise = new Promise<void>((resolve) => {
+    if (window.YT && window.YT.Player) resolve();
+    else {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      window.onYouTubeIframeAPIReady = () => resolve();
+    }
+  });
+  return youtubeApiReadyPromise;
+}
+
+// --- YouTubePlayer with Playlist Sidebar Overlay and Sequential Playlist Playback ---
+function YouTubePlayer({
+  playlistId,
+  playlistVideos,
+  initialVideoId,
+  containerId,
+  user,
+}: {
+  playlistId: string;
+  playlistVideos: PlaylistVideo[];
+  initialVideoId: string;
+  containerId: string;
+  user: any;
+}) {
+  const playerRef = useRef<any>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [currentVideoId, setCurrentVideoId] = useState(initialVideoId);
+
+  // Find current video index in playlist
+  const currentIndex = playlistVideos.findIndex((v) => v.videoId === currentVideoId);
+
+  useEffect(() => {
+    setCurrentVideoId(initialVideoId);
+  }, [initialVideoId]);
+
+  // --- UseEffect: Save and restore progress per video ---
+  useEffect(() => {
+    let player: any;
+    let savedTimes: Record<string, number> = {};
+    let currentVideo = currentVideoId;
+    let progressDocRef: any;
+
+    if (!user || !containerRef.current) return;
+
+    // Helper: get progress doc ref for a video
+    const getProgressDocRef = (videoId: string) =>
+      doc(db, "users", user.uid, "progress", `${playlistId}:${videoId}`);
+
+    // Helper: save progress for a video
+    const saveProgressForVideo = async (videoId: string, time: number) => {
+      if (!videoId) return;
+      await setDoc(
+        getProgressDocRef(videoId),
+        { time, videoId, playlistId },
+        { merge: true }
+      );
+    };
+
+    // Save progress every 5s for the current video
+    const saveProgress = async () => {
+      if (player && player.getCurrentTime && currentVideo) {
+        const currentTime = player.getCurrentTime();
+        if (isNaN(currentTime)) return;
+        savedTimes[currentVideo] = currentTime;
+        await saveProgressForVideo(currentVideo, currentTime);
+      }
+    };
+
+    // Called when player is ready, restores progress for current video
+    const onPlayerReady = () => {
+      const waitUntilPlayable = () => {
+        try {
+          const duration = player?.getDuration?.();
+          if (duration && duration > 0) {
+            const seekTime = savedTimes[currentVideo] ?? 0;
+            if (seekTime > 0) {
+              player.seekTo(seekTime, true);
+              setTimeout(() => player.pauseVideo(), 300);
+            } else {
+              player.pauseVideo();
+            }
+            setLoading(false);
+            intervalRef.current = setInterval(saveProgress, 5000);
+          } else {
+            setTimeout(waitUntilPlayable, 200);
+          }
+        } catch {
+          setTimeout(waitUntilPlayable, 200);
+        }
+      };
+      waitUntilPlayable();
+    };
+
+    // Save progress on pause or end
+    const onPlayerStateChange = async (event: any) => {
+      if (
+        event.data === window.YT.PlayerState.PAUSED ||
+        event.data === window.YT.PlayerState.ENDED
+      ) {
+        await saveProgress();
+      }
+    };
+
+    // Loads the player for a video, restoring its progress if available
+    const loadPlayer = (startTime: number, videoIdToUse: string) => {
+      currentVideo = videoIdToUse;
+      try {
+        // Prepare all video IDs in playlist order
+        const allVideoIds = playlistVideos.map((v) => v.videoId);
+        let videoIdIndex = allVideoIds.indexOf(videoIdToUse);
+        let videoId = videoIdToUse;
+        // If not found, fallback to first video
+        if (videoIdIndex === -1) {
+          videoIdIndex = 0;
+          videoId = allVideoIds[0];
+        }
+        // Playlist should be all videos after the first (current) one, then wrap around
+        let playlistArr: string[] = [];
+        if (allVideoIds.length > 1) {
+          playlistArr = [
+            ...allVideoIds.slice(videoIdIndex + 1),
+            ...allVideoIds.slice(0, videoIdIndex),
+          ];
+        }
+        const playerOptions: any = {
+          height: "100%",
+          width: "100%",
+          videoId: videoId,
+          playerVars: {
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            fs: 1,
+            autoplay: 0,
+            start: startTime,
+            playsinline: 1,
+            origin: window.location.origin,
+            enablejsapi: 1,
+            playlist: playlistArr.join(","),
+          },
+          events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
+        };
+        const iframeId = `${containerId}-iframe`;
+        // Clean up any old iframe with the same id
+        const oldIframe = document.getElementById(iframeId);
+        if (oldIframe) {
+          oldIframe.parentNode?.removeChild(oldIframe);
+        }
+        // Create a new div for the player
+        if (containerRef.current) {
+          const newDiv = document.createElement("div");
+          newDiv.id = iframeId;
+          newDiv.className = "yt-iframe w-full h-full";
+          containerRef.current.appendChild(newDiv);
+        }
+        setTimeout(() => {
+          try {
+            player = new window.YT.Player(iframeId, playerOptions);
+            playerRef.current = player;
+            const iframeEl = document.getElementById(iframeId) as HTMLIFrameElement | null;
+            if (iframeEl) {
+              iframeEl.setAttribute(
+                "allow",
+                "fullscreen; autoplay; picture-in-picture; accelerometer; clipboard-write; encrypted-media; gyroscope"
+              );
+              iframeEl.setAttribute("allowfullscreen", "true");
+              iframeEl.setAttribute("webkitallowfullscreen", "true");
+              iframeEl?.setAttribute("playsinline", "1");
+              iframeEl?.setAttribute("allowfullscreen", "");
+              iframeEl?.setAttribute("webkit-playsinline", "true");
+            }
+          } catch (err) {
+            // ignore
+          }
+        }, 300);
+      } catch {}
+    };
+
+    // Fetch progress for all videos in the playlist, then load player for current video
+    const fetchAllProgressAndLoad = async () => {
+      savedTimes = {};
+      await Promise.all(
+        playlistVideos.map(async (v) => {
+          try {
+            const docSnap = await getDoc(getProgressDocRef(v.videoId));
+            const data = docSnap.exists() ? docSnap.data() : null;
+            if (typeof data?.time === "number") {
+              savedTimes[v.videoId] = data.time;
+            }
+          } catch {}
+        })
+      );
+      // Use saved time for current video if available
+      const startTime = savedTimes[currentVideoId] ?? 0;
+      loadPlayer(startTime, currentVideoId);
+    };
+
+    // Ensure any previous interval is cleared when switching videos
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    loadYouTubeAPI().then(fetchAllProgressAndLoad);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (player) {
+        try {
+          player.destroy();
+        } catch {}
+      }
+    };
+    // eslint-disable-next-line
+  }, [user, playlistId, currentVideoId, containerId, playlistVideos]);
+
+  // Sidebar overlay (portal)
+  const sidebar = showSidebar && typeof document !== "undefined"
+    ? ReactDOM.createPortal(
+        <div
+          className="fixed top-0 right-0 h-full w-80 bg-gray-900 p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300"
+        >
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-white text-lg font-semibold">Playlist</h2>
+            <button
+              onClick={() => setShowSidebar(false)}
+              className="text-white text-xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex flex-col space-y-2">
+            {playlistVideos.map((v, idx) => (
+              <button
+                key={v.videoId}
+                onClick={() => {
+                  setCurrentVideoId(v.videoId);
+                  setShowSidebar(false);
+                }}
+                className={`flex items-center gap-2 p-2 rounded ${
+                  v.videoId === currentVideoId
+                    ? "bg-[#26667F]"
+                    : "hover:bg-gray-700"
+                } transition`}
+              >
+                <img
+                  src={v.thumbnail}
+                  alt={v.title}
+                  className="w-20 h-12 object-cover rounded"
+                />
+                <span className="text-white text-sm truncate">{v.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  // Mobile playlist bar
+  const mobileBar = (
+    <div className="flex flex-wrap justify-center gap-2 mt-2 bg-[#1a1a1a] text-white p-2 rounded-md">
+      {playlistVideos.map((v) => (
+        <button
+          key={v.videoId}
+          onClick={() => setCurrentVideoId(v.videoId)}
+          className={`flex items-center gap-2 px-2 py-1 text-sm rounded ${
+            v.videoId === currentVideoId
+              ? "bg-[#26667F]"
+              : "bg-gray-700 hover:bg-[#1f5060]"
+          } transition`}
+        >
+          <img
+            src={v.thumbnail}
+            alt={v.title}
+            className="w-8 h-5 object-cover rounded"
+          />
+          <span className="truncate">{v.title}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      className="yt-wrapper relative aspect-[16/9] w-full bg-black rounded-lg overflow-hidden flex items-center justify-center"
+    >
+      <button
+        className="absolute top-3 right-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4 sm:right-4"
+        onClick={() => setShowSidebar((v) => !v)}
+      >
+        ▶️ Playlist
+      </button>
+      {sidebar}
+      {loading && (
+        <p className="absolute inset-0 flex items-center justify-center text-white text-sm z-10">
+          Loading video...
+        </p>
+      )}
+      <div id={`${containerId}-iframe`} className="yt-iframe w-full h-full" />
+      {/* Mobile playlist bar */}
+      <div className="block sm:hidden w-full">{mobileBar}</div>
+    </div>
+  );
+}
+
+// --- Main Courses Page ---
 export default function CoursesPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [playlistMap, setPlaylistMap] = useState<Record<string, PlaylistVideo[]>>({});
+  const [activePlaylist, setActivePlaylist] = useState<{
+    courseId: string;
+    playlistId: string;
+  } | null>(null);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -425,6 +447,34 @@ export default function CoursesPage() {
     };
     fetchCourses();
   }, [user]);
+
+  // Fetch playlist videos for all playlists shown
+  useEffect(() => {
+    // Get all unique playlistIds
+    const playlistIds = new Set<string>();
+    for (const course of courses) {
+      for (const url of course.videos || []) {
+        const { playlistId } = parseYouTubeUrl(url);
+        if (playlistId) playlistIds.add(playlistId);
+      }
+    }
+    const fetchAll = async () => {
+      const newMap: Record<string, PlaylistVideo[]> = {};
+      await Promise.all(
+        Array.from(playlistIds).map(async (pid) => {
+          if (!playlistMap[pid]) {
+            const vids = await fetchPlaylistVideos(pid);
+            newMap[pid] = vids;
+          }
+        })
+      );
+      if (Object.keys(newMap).length > 0) {
+        setPlaylistMap((m) => ({ ...m, ...newMap }));
+      }
+    };
+    if (playlistIds.size > 0) fetchAll();
+    // eslint-disable-next-line
+  }, [courses]);
 
   const filteredCourses = courses.filter(
     (course) =>
@@ -474,17 +524,15 @@ export default function CoursesPage() {
           <div className="pb-10">
             <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredCourses.map((course) => {
-                const validVideos = (course.videos || [])
-                  .map((video) => {
-                    const { videoId, playlistId } = parseYouTubeUrl(video.trim());
-                    if (videoId || playlistId) return { videoId, playlistId };
-                    return null;
+                // Gather all playlists for this course
+                const playlists = (course.videos || [])
+                  .map((url) => {
+                    const { playlistId } = parseYouTubeUrl(url.trim());
+                    return playlistId;
                   })
-                  .filter((v) => v !== null) as {
-                  videoId: string | null;
-                  playlistId: string | null;
-                }[];
-
+                  .filter((pid) => !!pid) as string[];
+                // Remove duplicates
+                const uniquePlaylists = Array.from(new Set(playlists));
                 return (
                   <Card
                     key={course.id}
@@ -499,51 +547,63 @@ export default function CoursesPage() {
                       </Badge>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {validVideos.length === 0 ? (
+                      {uniquePlaylists.length === 0 ? (
                         <p className="text-gray-500 text-center py-8">
-                          No valid videos available for this course.
+                          No playlists available for this course.
                         </p>
                       ) : (
-                        validVideos.map(({ videoId, playlistId }, index) => {
-                          const parsedVideos = validVideos.filter((v) => v.videoId);
-                          return (
-                            <div
-                              key={index}
-                              className="relative min-h-[240px] sm:min-h-[260px] bg-black rounded-lg overflow-hidden"
-                            >
-                              {/* Player */}
-                              <YouTubePlayer
-                                containerId={`player-${course.id}-${index}`}
-                                videoId={videoId}
-                                playlistId={playlistId}
-                              />
-                              {/* Mobile Playlist Bar */}
-                              {parsedVideos.length >= 1 && (
-                                <div className="flex flex-wrap justify-center gap-2 mt-2 bg-[#1a1a1a] text-white p-2 rounded-md">
-                                  {parsedVideos.map((vid, vidIndex) => (
-                                    <button
-                                      key={vidIndex}
-                                      onClick={() => {
-                                        const iframe = document.getElementById(
-                                          `player-${course.id}-${index}-iframe`
-                                        ) as HTMLIFrameElement | null;
-
-                                        if (iframe && window.YT && iframe.id) {
-                                          const player = new window.YT.Player(iframe.id);
-                                          if (vid.videoId) player.loadVideoById(vid.videoId);
-                                        }
-                                      }}
-                                      className="px-3 py-2 text-sm rounded bg-[#26667F] hover:bg-[#1f5060] transition"
-                                    >
-                                      {`Video ${vidIndex + 1}`}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
+                        <div className="flex flex-wrap gap-2">
+                          {uniquePlaylists.map((pid, i) => {
+                            const list = playlistMap[pid] || [];
+                            // Use first video as thumbnail
+                            const thumb = list[0]?.thumbnail || "";
+                            return (
+                              <button
+                                key={pid}
+                                className="flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-lg p-2 text-white w-36 transition"
+                                onClick={() => {
+                                  setActivePlaylist({ courseId: course.id, playlistId: pid });
+                                  setSelectedVideoId(list[0]?.videoId || "");
+                                }}
+                              >
+                                {thumb && (
+                                  <img
+                                    src={thumb}
+                                    alt="Playlist thumbnail"
+                                    className="w-full h-20 object-cover rounded mb-1"
+                                  />
+                                )}
+                                <span className="font-semibold truncate w-full text-center">
+                                  Playlist {i + 1}
+                                </span>
+                                <span className="text-xs opacity-70">
+                                  {list.length > 0
+                                    ? `${list.length} videos`
+                                    : "Loading..."}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       )}
+                      {/* Show the YouTube player for this course/playlist if selected */}
+                      {activePlaylist &&
+                        activePlaylist.courseId === course.id &&
+                        playlistMap[activePlaylist.playlistId] &&
+                        playlistMap[activePlaylist.playlistId].length > 0 && (
+                          <div className="mt-4">
+                            <YouTubePlayer
+                              playlistId={activePlaylist.playlistId}
+                              playlistVideos={playlistMap[activePlaylist.playlistId]}
+                              initialVideoId={
+                                selectedVideoId ||
+                                playlistMap[activePlaylist.playlistId][0].videoId
+                              }
+                              containerId={`yt-player-${course.id}-${activePlaylist.playlistId}`}
+                              user={user}
+                            />
+                          </div>
+                        )}
                     </CardContent>
                   </Card>
                 );
