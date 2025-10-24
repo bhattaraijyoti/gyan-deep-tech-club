@@ -155,12 +155,16 @@ function YouTubePlayer({
   initialVideoId,
   containerId,
   user,
+  setActivePlaylist,
+  setSelectedVideoId,
 }: {
   playlistId: string;
   playlistVideos: PlaylistVideo[];
   initialVideoId: string;
   containerId: string;
   user: any;
+  setActivePlaylist: ((v: any) => void) | null;
+  setSelectedVideoId: ((v: string | null) => void) | null;
 }) {
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -385,8 +389,8 @@ function YouTubePlayer({
                 type="button"
                 onClick={() => {
                   setShowSidebar(false);
-                  setActivePlaylist(null);
-                  setSelectedVideoId(null);
+                  if (setActivePlaylist) setActivePlaylist(null);
+                  if (setSelectedVideoId) setSelectedVideoId(null);
                 }}
                 className="top-0 right-0 text-white text-2xl font-bold p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition cursor-pointer pointer-events-auto"
                 aria-label="Close playlist"
@@ -695,6 +699,8 @@ export default function CoursesPage() {
                               }
                               containerId={`yt-player-${course.id}-${activePlaylist.playlistId}`}
                               user={user}
+                              setActivePlaylist={setActivePlaylist}
+                              setSelectedVideoId={setSelectedVideoId}
                             />
                           </div>
                         )}
