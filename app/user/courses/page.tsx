@@ -317,18 +317,15 @@ function YouTubePlayer({
           ...allVideoIds.slice(0, videoIdIndex),
         ];
       }
-      // Remove any existing div/iframe for this player (robust for mobile/iPad reloads)
+      // Remove/add iframe container div as needed for robust reloads
       const parent = containerRef.current;
-      const existingDiv = document.getElementById(iframeId);
-      if (existingDiv && parent.contains(existingDiv)) {
-        parent.removeChild(existingDiv);
-      }
-      // Only create the player div if it doesn't already exist
       let newDiv = document.getElementById(iframeId);
       if (!newDiv) {
         newDiv = document.createElement("div");
         newDiv.id = iframeId;
         newDiv.className = "yt-iframe w-full h-full";
+        parent.appendChild(newDiv);
+      } else if (!parent.contains(newDiv)) {
         parent.appendChild(newDiv);
       }
       const playerOptions: any = {
@@ -441,7 +438,7 @@ function YouTubePlayer({
     typeof document !== "undefined"
       ? ReactDOM.createPortal(
           <div
-            className={`fixed top-0 h-full bg-white p-3 flex flex-col z-[9999] shadow-xl overflow-y-auto transition-transform duration-300
+            className={`fixed top-0 h-full bg-white p-4 flex flex-col z-[9999] shadow-2xl overflow-y-auto transition-transform duration-300 border-l border-gray-200
             ${
               sidebarSide === "left"
                 ? (showSidebar ? "translate-x-0 left-0 right-auto" : "-translate-x-full left-0 right-auto")
@@ -450,14 +447,14 @@ function YouTubePlayer({
             `}
             style={{
               maxWidth: "100vw",
-              width: typeof window !== "undefined" && window.innerWidth >= 640 ? "20rem" : "100vw",
+              width: typeof window !== "undefined" && window.innerWidth >= 640 ? "22rem" : "100vw",
               boxSizing: "border-box",
               left: sidebarSide === "left" ? 0 : "auto",
               right: sidebarSide === "right" ? 0 : "auto",
             }}
           >
-            <div className="flex justify-between items-center mb-3 relative">
-              <h2 className="text-black text-lg font-semibold">Playlist</h2>
+            <div className="flex justify-between items-center mb-4 relative">
+              <h2 className="text-[#26667F] text-xl font-bold">Playlist</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -465,13 +462,13 @@ function YouTubePlayer({
                   if (setActivePlaylist) setActivePlaylist(null);
                   if (setSelectedVideoId) setSelectedVideoId(null);
                 }}
-                className="top-0 right-0 text-white text-2xl font-bold p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition cursor-pointer pointer-events-auto"
+                className="top-0 right-0 text-white text-2xl font-bold p-2 bg-[#26667F] rounded-full hover:bg-[#1f5060] transition cursor-pointer pointer-events-auto shadow"
                 aria-label="Close playlist"
               >
                 ×
               </button>
             </div>
-            <div className="flex flex-col space-y-2 overflow-y-auto" style={{ maxHeight: "80vh" }}>
+            <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar" style={{ maxHeight: "80vh" }}>
               {playlistVideos.map((v, idx) => (
                 <button
                   key={v.videoId || idx}
@@ -479,21 +476,27 @@ function YouTubePlayer({
                     setCurrentVideoId(v.videoId);
                     setShowSidebar(false);
                   }}
-                  className={`flex items-center gap-2 p-2 rounded ${
-                    v.videoId === currentVideoId ? "bg-[#26667F] text-white" : "hover:bg-gray-700"
-                  } transition`}
+                  className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent
+                    ${
+                      v.videoId === currentVideoId
+                        ? "bg-[#26667F] text-white shadow-lg border-[#26667F] scale-[1.03]"
+                        : "bg-gray-100 hover:bg-[#e6f1f6] hover:shadow-md text-gray-800"
+                    }
+                  `}
                   style={{
                     outline: v.videoId === currentVideoId ? "2px solid #26667F" : undefined,
                   }}
                 >
-                  <img src={v.thumbnail} alt={v.title} className="w-20 h-12 object-cover rounded" />
-                  <span className="truncate text-inherit">{v.title}</span>
-                  {typeof videoProgress[v.videoId] === "number" && (
-                    <span className="ml-2 text-xs text-gray-300">
-                      {Math.floor(videoProgress[v.videoId] / 60)}:
-                      {String(Math.floor(videoProgress[v.videoId] % 60)).padStart(2, "0")}
-                    </span>
-                  )}
+                  <img src={v.thumbnail} alt={v.title} className="w-20 h-12 object-cover rounded-lg border border-gray-200 shadow" />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="truncate text-inherit font-medium">{v.title}</span>
+                    {typeof videoProgress[v.videoId] === "number" && (
+                      <span className="text-xs text-gray-400 mt-1">
+                        Progress: {Math.floor(videoProgress[v.videoId] / 60)}:
+                        {String(Math.floor(videoProgress[v.videoId] % 60)).padStart(2, "0")}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
@@ -505,31 +508,33 @@ function YouTubePlayer({
   // Mobile playlist bar: visible and functional on small screens
   const mobileBar = (
     <div
-      className="flex flex-nowrap overflow-x-auto scrollbar-thin justify-start gap-2 mt-2 bg-[#1a1a1a] text-white p-2 rounded-md w-full"
+      className="flex flex-nowrap overflow-x-auto scrollbar-thin justify-start gap-3 mt-2 bg-white/90 text-[#26667F] p-2 rounded-xl w-full shadow"
       style={{ WebkitOverflowScrolling: "touch", maxWidth: "100vw" }}
     >
       {playlistVideos.map((v, idx) => (
         <button
           key={v.videoId || idx}
           onClick={() => setCurrentVideoId(v.videoId)}
-          className={`flex items-center gap-2 px-2 py-1 text-sm rounded ${
-            v.videoId === currentVideoId
-              ? "bg-[#26667F] ring-2 ring-[#26667F] text-white"
-              : "bg-gray-700 hover:bg-[#1f5060]"
-          } transition whitespace-nowrap`}
+          className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg shadow transition-all duration-200 border border-transparent
+            ${
+              v.videoId === currentVideoId
+                ? "bg-[#26667F] text-white border-[#26667F] scale-[1.05] shadow-lg"
+                : "bg-gray-100 hover:bg-[#e6f1f6] hover:shadow-md text-[#26667F]"
+            }
+          `}
           style={{
-            minWidth: "120px",
+            minWidth: "135px",
             outline: v.videoId === currentVideoId ? "2px solid #26667F" : undefined,
           }}
         >
           <img
             src={v.thumbnail}
             alt={v.title}
-            className="w-8 h-5 object-cover rounded"
+            className="w-9 h-6 object-cover rounded-md border border-gray-200"
           />
-          <span className="truncate">{v.title}</span>
+          <span className="truncate font-medium">{v.title}</span>
           {typeof videoProgress[v.videoId] === "number" && (
-            <span className="ml-2 text-xs text-gray-300">
+            <span className="ml-2 text-xs text-gray-400">
               {Math.floor(videoProgress[v.videoId] / 60)}:
               {String(Math.floor(videoProgress[v.videoId] % 60)).padStart(2, "0")}
             </span>
@@ -544,73 +549,57 @@ function YouTubePlayer({
     <div className="w-full">
       <div
         ref={containerRef}
-        className="yt-wrapper relative w-full bg-white rounded-lg overflow-hidden flex flex-col items-center justify-center"
+        className="yt-wrapper relative w-full bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-lg border border-gray-200"
         style={{ minHeight: "250px", maxWidth: "100%", width: "100%", position: "relative" }}
       >
         {/* Playlist sidebar button */}
         <button
           className={`absolute top-3 ${
             sidebarSide === "left" ? "left-3 sm:left-4" : "right-3 sm:right-4"
-          } bg-[#26667F] text-white px-3 py-1.5 rounded-md text-sm z-20 sm:top-4`}
+          } bg-[#26667F] text-white px-3 py-1.5 rounded-md text-base z-20 sm:top-4 shadow-md hover:bg-[#1f5060] focus:outline-none focus:ring-2 focus:ring-[#26667F] transition`}
           onClick={() => setShowSidebar((v) => !v)}
           aria-label="Open playlist"
         >
-          ▶️ Playlist
+          <span className="mr-2">▶️</span> Playlist
         </button>
 
         {/* Playlist sidebar */}
         {sidebar}
 
         {/* Video player */}
-        {isMobileOrTablet ? (
-          playlistVideos.length === 0 ? (
-            <div className="w-full h-64 flex items-center justify-center bg-gray-100 rounded">
-              <Loader2 className="animate-spin text-[#26667F]" size={32} />
-              <span className="ml-2 text-gray-600">Loading playlist...</span>
-            </div>
+        <div className="w-full rounded-2xl overflow-hidden shadow-lg bg-black/80 mt-2">
+          {isMobileOrTablet ? (
+            playlistVideos.length === 0 ? (
+              <div className="w-full h-64 flex items-center justify-center bg-gray-100 rounded-2xl">
+                <Loader2 className="animate-spin text-[#26667F]" size={32} />
+                <span className="ml-2 text-gray-600">Loading playlist...</span>
+              </div>
+            ) : (
+              <iframe
+                key={iframeKey} // force reload when video changes or playlist loads
+                className="yt-iframe w-full aspect-video rounded-2xl shadow-lg border-none"
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/${currentVideoId}?playlist=${playlistVideos
+                  .map((v) => v.videoId)
+                  .filter((id) => id !== currentVideoId)
+                  .join(",")}&controls=1&rel=0&modestbranding=1&autoplay=0&playsinline=1`}
+                allow="fullscreen; autoplay; picture-in-picture"
+                allowFullScreen
+                style={{ minHeight: "250px", display: "block", borderRadius: "1rem", boxShadow: "0 4px 24px 0 rgba(38,102,127,0.15)" }}
+              />
+            )
           ) : (
-            <iframe
-              key={iframeKey} // force reload when video changes or playlist loads
-              className="yt-iframe w-full aspect-video"
-              width="100%"
-              height="100%"
-              src={`https://www.youtube.com/embed/${currentVideoId}?playlist=${playlistVideos
-                .map((v) => v.videoId)
-                .filter((id) => id !== currentVideoId)
-                .join(",")}&controls=1&rel=0&modestbranding=1&autoplay=0&playsinline=1`}
-              allow="fullscreen; autoplay; picture-in-picture"
-              allowFullScreen
-              style={{ minHeight: "250px", display: "block" }}
+            <div
+              id={`${containerId}-iframe`}
+              className="yt-iframe w-full h-full aspect-video rounded-2xl"
             />
-          )
-        ) : (
-          <div
-            id={`${containerId}-iframe`}
-            className="yt-iframe w-full h-full aspect-video"
-          />
-        )}
+          )}
+        </div>
 
         {/* Mobile playlist bar */}
-        <div className="block sm:hidden w-full mt-2">
-          {playlistVideos.map((v, idx) => (
-            <button
-              key={v.videoId || idx}
-              onClick={() => setCurrentVideoId(v.videoId)}
-              className={`flex items-center gap-2 px-2 py-1 text-sm rounded ${
-                v.videoId === currentVideoId
-                  ? "bg-[#26667F] ring-2 ring-[#26667F] text-white"
-                  : "bg-gray-700 hover:bg-[#1f5060]"
-              } transition whitespace-nowrap`}
-              style={{ minWidth: "120px" }}
-            >
-              <img
-                src={v.thumbnail}
-                alt={v.title}
-                className="w-8 h-5 object-cover rounded"
-              />
-              <span className="truncate">{v.title}</span>
-            </button>
-          ))}
+        <div className="block sm:hidden w-full mt-3">
+          {mobileBar}
         </div>
       </div>
     </div>
@@ -732,7 +721,7 @@ useEffect(() => {
           </p>
         ) : (
           <div className="pb-10">
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredCourses.map((course) => {
                 // Gather all playlists for this course
                 const playlists = (course.videos || [])
@@ -746,23 +735,24 @@ useEffect(() => {
                 return (
                   <Card
                     key={course.id}
-                    className="hover:shadow-md transition-transform duration-200 flex flex-col rounded-lg bg-white border border-gray-100"
+                    className="hover:shadow-2xl transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
+                    style={{ minHeight: "340px" }}
                   >
-                    <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                      <CardTitle className="text-lg font-semibold text-[#26667F]">
+                    <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 pb-0">
+                      <CardTitle className="text-xl font-bold text-[#26667F] group-hover:text-[#1f5060] transition">
                         {course.title}
                       </CardTitle>
-                      <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white">
+                      <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white px-3 py-1 rounded-full shadow">
                         {course.language}
                       </Badge>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-4 pt-0">
                       {uniquePlaylists.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">
+                        <p className="text-gray-400 text-center py-10">
                           No playlists available for this course.
                         </p>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3 justify-center">
                           {uniquePlaylists.map((pid, i) => {
                             const list = playlistMap[pid] || [];
                             // Use first video as thumbnail
@@ -770,7 +760,15 @@ useEffect(() => {
                             return (
                               <button
                                 key={pid}
-                                className="flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-lg p-2 text-white w-36 transition"
+                                className={`flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-xl p-2.5 text-white w-36 min-w-[8.5rem] shadow-md border-2 border-transparent transition-all duration-200
+                                  ${
+                                    activePlaylist &&
+                                    activePlaylist.courseId === course.id &&
+                                    activePlaylist.playlistId === pid
+                                      ? "border-[#26667F] scale-[1.04] shadow-lg"
+                                      : "hover:scale-[1.03]"
+                                  }
+                                `}
                                 onClick={() => {
                                   setActivePlaylist({ courseId: course.id, playlistId: pid });
                                   setSelectedVideoId(list[0]?.videoId || "");
@@ -780,13 +778,13 @@ useEffect(() => {
                                   <img
                                     src={thumb}
                                     alt="Playlist thumbnail"
-                                    className="w-full h-20 object-cover rounded mb-1"
+                                    className="w-full h-24 object-cover rounded-lg mb-2 shadow"
                                   />
                                 )}
                                 <span className="font-semibold truncate w-full text-center">
                                   Playlist {i + 1}
                                 </span>
-                                <span className="text-xs opacity-70">
+                                <span className="text-xs opacity-80 mt-1">
                                   {list.length > 0
                                     ? `${list.length} videos`
                                     : "Loading..."}
