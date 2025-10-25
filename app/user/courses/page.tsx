@@ -116,6 +116,7 @@ function YouTubePlayer({
   user,
   setActivePlaylist,
   setSelectedVideoId,
+  onVideoProgressChange,
 }: {
   playlistId: string;
   playlistVideos: PlaylistVideo[];
@@ -124,6 +125,7 @@ function YouTubePlayer({
   user: any;
   setActivePlaylist: ((v: any) => void) | null;
   setSelectedVideoId: ((v: string | null) => void) | null;
+  onVideoProgressChange?: (progress: Record<string, number>) => void;
 }) {
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -165,7 +167,13 @@ function YouTubePlayer({
       const currentTime = player.getCurrentTime();
       if (isNaN(currentTime)) return;
       savedTimesRef.current[currentVideoId] = currentTime;
-      setVideoProgress((prev) => ({ ...prev, [currentVideoId]: currentTime }));
+      setVideoProgress((prev) => {
+        const updated = { ...prev, [currentVideoId]: currentTime };
+        if (onVideoProgressChange) {
+          onVideoProgressChange(updated);
+        }
+        return updated;
+      });
       await saveProgressForVideo(currentVideoId, currentTime);
     }
   };
@@ -243,7 +251,12 @@ function YouTubePlayer({
       })
     );
     savedTimesRef.current = result;
-    setVideoProgress(result);
+    setVideoProgress(() => {
+      if (onVideoProgressChange) {
+        onVideoProgressChange(result);
+      }
+      return result;
+    });
   };
 
   // Always update currentVideoId when initialVideoId or playlistVideos changes
@@ -364,14 +377,13 @@ function YouTubePlayer({
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
-      if (rect.left > viewportWidth * 0.55) {
+      // If the player is on the far right of the viewport (desktop or iPad, width ≥ 768px),
+      // always place the sidebar on the far left.
+      if (viewportWidth >= 768 && rect.right >= viewportWidth - 48) {
         setSidebarSide("left");
-      } else if (rect.right < viewportWidth * 0.45) {
-        setSidebarSide("right");
       } else {
-        const leftSpace = rect.left;
-        const rightSpace = viewportWidth - rect.right;
-        setSidebarSide(leftSpace > rightSpace ? "left" : "right");
+        // Default: right side
+        setSidebarSide("right");
       }
     }
   }, [showSidebar]);
@@ -453,19 +465,6 @@ function YouTubePlayer({
         className="yt-wrapper relative w-full bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-lg border border-gray-200"
         style={{ minHeight: "250px", maxWidth: "100%", width: "100%", position: "relative" }}
       >
-        {/* Playlist sidebar button near the video, dynamic position with hover animation */}
-        <button
-          className="absolute top-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-base z-20 shadow-md hover:bg-[#1f5060] transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
-          style={{
-            right: typeof window !== "undefined" && window.innerWidth >= 640 ? "0.75rem" : "auto", // desktop: right
-            left: typeof window !== "undefined" && window.innerWidth < 640 ? "0.75rem" : "auto", // mobile: left
-          }}
-          onClick={() => setShowSidebar((v) => !v)}
-          aria-label="Open playlist"
-        >
-          <span className="mr-2">▶️</span> Playlist
-        </button>
-
         {/* Playlist sidebar */}
         {sidebar}
 
@@ -548,6 +547,8 @@ export default function CoursesPage() {
   } | null>(null);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   // Remove isDesktop logic: always fetch and render playlists for all devices
+  // Track video progress per active playlist
+  const [playlistProgressMap, setPlaylistProgressMap] = useState<Record<string, Record<string, number>>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -615,6 +616,68 @@ export default function CoursesPage() {
       course.language.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // --- Sidebar open state map: { [courseId:playlistId]: boolean }
+  const [sidebarOpenMap, setSidebarOpenMap] = useState<Record<string, boolean>>({});
+
+  // Ensure only one playlist sidebar is open at a time (across all courses)
+  const setSidebarOpen = (courseId: string, playlistId: string, open: boolean) => {
+    setSidebarOpenMap((prev) => {
+      if (open) {
+        // Close all others, open only this playlist
+        const newMap: Record<string, boolean> = {};
+        newMap[`${courseId}:${playlistId}`] = true;
+        return newMap;
+      } else {
+        // Just close the specific sidebar
+        return {
+          ...prev,
+          [`${courseId}:${playlistId}`]: false,
+        };
+      }
+    });
+  };
+
+  // --- Refs and sidebar side state for all course cards ---
+  // Map of courseId to card DOM ref
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Map of courseId to sidebar side map (playlistId -> 'left' | 'right')
+  const [sidebarSideMap, setSidebarSideMap] = useState<Record<string, Record<string, "left" | "right">>>({});
+
+  // Helper to determine sidebar side for a playlist given courseId and playlistId
+  const determineSidebarSide = (courseId: string, playlistId: string) => {
+    if (typeof window === "undefined" || !cardRefs.current[courseId]) return "right";
+    const rect = cardRefs.current[courseId]!.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    // If card is near right edge (within 48px), put sidebar left (desktop/iPad)
+    if (viewportWidth >= 768 && rect.right >= viewportWidth - 48) {
+      return "left";
+    }
+    return "right";
+  };
+
+  // Watch for sidebar open changes, update sidebarSideMap for all open sidebars
+  useEffect(() => {
+    const updated: Record<string, Record<string, "left" | "right">> = { ...sidebarSideMap };
+    filteredCourses.forEach((course) => {
+      const playlists = (course.videos || [])
+        .map((url) => {
+          const { playlistId } = parseYouTubeUrl(url.trim());
+          return playlistId;
+        })
+        .filter((pid) => !!pid) as string[];
+      const uniquePlaylists = Array.from(new Set(playlists));
+      uniquePlaylists.forEach((pid) => {
+        if (sidebarOpenMap[`${course.id}:${pid}`]) {
+          const side = determineSidebarSide(course.id, pid);
+          if (!updated[course.id]) updated[course.id] = {};
+          updated[course.id][pid] = side;
+        }
+      });
+    });
+    setSidebarSideMap(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarOpenMap, filteredCourses.length]);
+
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-3 sm:px-6 lg:px-10 transition-all duration-300">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -657,7 +720,7 @@ export default function CoursesPage() {
           <div className="pb-10">
             {/* Playlists and player visible for all devices */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCourses.map((course) => {
+              {filteredCourses.map((course, courseIdx) => {
                 // Gather all playlists for this course
                 const playlists = (course.videos || [])
                   .map((url) => {
@@ -667,16 +730,54 @@ export default function CoursesPage() {
                   .filter((pid) => !!pid) as string[];
                 // Remove duplicates
                 const uniquePlaylists = Array.from(new Set(playlists));
+                // Assign a ref for this course card
+                if (!cardRefs.current[course.id]) {
+                  cardRefs.current[course.id] = null;
+                }
                 return (
                   <Card
                     key={course.id}
+                    ref={(el) => {
+                      cardRefs.current[course.id] = el;
+                    }}
                     className="hover:shadow-2xl transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
                     style={{ minHeight: "340px" }}
                   >
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 pb-0">
-                      <CardTitle className="text-xl font-bold text-[#26667F] group-hover:text-[#1f5060] transition">
-                        {course.title}
-                      </CardTitle>
+                      <div className="flex items-center gap-2 w-full">
+                        <CardTitle className="text-xl font-bold text-[#26667F] group-hover:text-[#1f5060] transition flex-1">
+                          {course.title}
+                        </CardTitle>
+                        {/* Playlist button beside course title (only for active playlist) */}
+                        {uniquePlaylists.length > 0 &&
+                          activePlaylist &&
+                          activePlaylist.courseId === course.id &&
+                          uniquePlaylists.some(pid => pid === activePlaylist.playlistId) && (
+                            <button
+                              key={activePlaylist.playlistId}
+                              className={`flex items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-md px-2 py-1 text-white text-sm shadow-md border-2 border-transparent transition-all duration-200
+                                ${
+                                  sidebarOpenMap[`${course.id}:${activePlaylist.playlistId}`]
+                                    ? "border-[#26667F] scale-[1.04] shadow-lg"
+                                    : "hover:scale-[1.03]"
+                                }
+                              `}
+                              onClick={() =>
+                                setSidebarOpen(
+                                  course.id,
+                                  activePlaylist.playlistId,
+                                  !sidebarOpenMap[`${course.id}:${activePlaylist.playlistId}`]
+                                )
+                              }
+                              type="button"
+                              aria-label={`Toggle playlist`}
+                              style={{ marginLeft: 4 }}
+                            >
+                              <span className="mr-1">▶️</span>
+                              Playlist
+                            </button>
+                          )}
+                      </div>
                       <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white px-3 py-1 rounded-full shadow">
                         {course.language}
                       </Badge>
@@ -770,10 +871,99 @@ export default function CoursesPage() {
                                   user={user}
                                   setActivePlaylist={setActivePlaylist}
                                   setSelectedVideoId={setSelectedVideoId}
+                                  onVideoProgressChange={(progress) => {
+                                    setPlaylistProgressMap(prev => ({
+                                      ...prev,
+                                      [activePlaylist.playlistId]: progress,
+                                    }));
+                                  }}
                                 />
                               </div>
                             </>
                           )}
+                        {/* Playlist sidebar per course+playlist */}
+                        {uniquePlaylists.map((pid, i) => {
+                          const list = playlistMap[pid] || [];
+                          const isOpen = sidebarOpenMap[`${course.id}:${pid}`];
+                          // Use video progress from playlistProgressMap for this playlist
+                          const videoProgressForSidebar = playlistProgressMap[pid] || {};
+                          // Only render sidebar if open
+                          if (!isOpen) return null;
+                          // Use sidebarSideMap at top-level for this course/playlist
+                          const sidebarSide = (sidebarSideMap[course.id] && sidebarSideMap[course.id][pid]) || "right";
+                          return (
+                            <div
+                              key={`sidebar-${pid}`}
+                              className={`fixed top-0 h-full bg-white p-4 flex flex-col z-[9999] shadow-2xl overflow-y-auto transition-transform duration-300 border-l border-gray-200
+                                ${
+                                  sidebarSide === "left"
+                                    ? "left-0 right-auto"
+                                    : "right-0 left-auto"
+                                }
+                                ${
+                                  isOpen
+                                    ? "translate-x-0"
+                                    : (sidebarSide === "left"
+                                      ? "-translate-x-full"
+                                      : "translate-x-full")
+                                }
+                              `}
+                              style={{
+                                maxWidth: "100vw",
+                                width: typeof window !== "undefined" && window.innerWidth >= 640 ? "22rem" : "100vw",
+                                boxSizing: "border-box",
+                                left: sidebarSide === "left" ? 0 : "auto",
+                                right: sidebarSide === "right" ? 0 : "auto",
+                              }}
+                            >
+                              <div className="flex justify-between items-center mb-4 relative">
+                                <h2 className="text-[#26667F] text-xl font-bold">Playlist {i + 1}</h2>
+                                <button
+                                  type="button"
+                                  onClick={() => setSidebarOpen(course.id, pid, false)}
+                                  className="top-0 right-0 text-white text-2xl font-bold p-2 bg-[#26667F] rounded-full hover:bg-[#1f5060] transition cursor-pointer pointer-events-auto shadow"
+                                  aria-label="Close playlist"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar" style={{ maxHeight: "80vh" }}>
+                                {list.map((v, idx) => (
+                                  <button
+                                    key={v.videoId || idx}
+                                    onClick={() => {
+                                      setActivePlaylist({ courseId: course.id, playlistId: pid });
+                                      setSelectedVideoId(v.videoId);
+                                      setSidebarOpen(course.id, pid, false);
+                                    }}
+                                    className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent
+                                      ${
+                                        v.videoId === selectedVideoId
+                                          ? "bg-[#26667F] text-white shadow-lg border-[#26667F] scale-[1.03]"
+                                          : "bg-gray-100 hover:bg-[#e6f1f6] hover:shadow-md text-gray-800"
+                                      }
+                                    `}
+                                    style={{
+                                      outline: v.videoId === selectedVideoId ? "2px solid #26667F" : undefined,
+                                    }}
+                                  >
+                                    <img src={v.thumbnail} alt={v.title} className="w-20 h-12 object-cover rounded-lg border border-gray-200 shadow" />
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <span className="truncate text-inherit font-medium">{v.title}</span>
+                                      {/* Progress timestamp for each video */}
+                                      {typeof videoProgressForSidebar?.[v.videoId] === "number" ? (
+                                        <span className="text-xs text-gray-400 mt-1">
+                                          Progress: {Math.floor(videoProgressForSidebar[v.videoId] / 60)}:
+                                          {String(Math.floor(videoProgressForSidebar[v.videoId] % 60)).padStart(2, "0")}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </>
                     </CardContent>
                   </Card>

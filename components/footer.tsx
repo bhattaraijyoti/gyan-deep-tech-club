@@ -70,11 +70,9 @@ export function Footer() {
             <h4 className="text-lg font-semibold text-white">Learning Paths</h4>
             <nav className="space-y-3">
               {[
-                { name: "Beginner Track", href: "/dashboard/beginner" },
-                { name: "Intermediate Track", href: "/dashboard/intermediate" },
-                { name: "Advanced Track", href: "/dashboard/advanced" },
-                { name: "Study Groups", href: "/chats/general" },
                 { name: "Faq", href: "/faq" },
+                { name: "Privacy Policy", href: "/privacy" },
+                { name: "Terms of Service", href: "/terms" },
               ].map((link) => (
                 <Link
                   key={link.name}
