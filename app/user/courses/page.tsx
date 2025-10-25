@@ -78,6 +78,35 @@ function loadYouTubeAPI(): Promise<void> {
   return youtubeApiReadyPromise;
 }
 
+// Safe Firestore get with retries (helps when mobile blocks/slowly restores network)
+async function safeFirestoreGet(docRef: any, maxRetries = 2, baseDelay = 800) {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      const snap = await getDoc(docRef);
+      return snap;
+    } catch (err: any) {
+      const msg = String(err?.message || "").toLowerCase();
+      // If clearly blocked or network failure, retry with backoff
+      if (msg.includes("failed to fetch") || msg.includes("blocked") || msg.includes("networkerror") || msg.includes("net::err_blocked_by_client")) {
+        if (attempt === maxRetries) {
+          console.warn("safeFirestoreGet: final retry failed", err);
+          return null;
+        }
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.warn(`safeFirestoreGet: network issue, retrying in ${delay}ms (attempt ${attempt + 1})`);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, delay));
+        attempt++;
+        continue;
+      }
+      // For other errors, rethrow
+      throw err;
+    }
+  }
+  return null;
+}
+
 // --- Responsive YouTubePlayer with Full Playlist Support, Progress Saving, and Mobile/iPad Fixes (updated component) ---
 function YouTubePlayer({
   playlistId,
@@ -100,6 +129,9 @@ function YouTubePlayer({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
+  // --- Play Overlay State ---
+  const [showPlayOverlay, setShowPlayOverlay] = useState(true);
+
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarSide, setSidebarSide] = useState<'left' | 'right'>('right');
   const fallbackFirstVideoId = playlistVideos[0]?.videoId || "";
@@ -153,6 +185,7 @@ function YouTubePlayer({
             player.pauseVideo();
           }
           setLoading(false);
+          setShowPlayOverlay(true);
           if (intervalRef.current) clearInterval(intervalRef.current);
           intervalRef.current = setInterval(saveProgress, 5000);
         } else {
@@ -167,11 +200,17 @@ function YouTubePlayer({
 
   // onPlayerStateChange handler
   const onPlayerStateChange = async (event: any) => {
-    if (
-      event.data === window.YT.PlayerState.PAUSED ||
-      event.data === window.YT.PlayerState.ENDED
-    ) {
+    // Player states: -1 = unstarted, 0 = ended, 1 = playing, 2 = paused, 3 = buffering, 5 = cued
+    if (event.data === window.YT.PlayerState.PAUSED) {
       await saveProgress();
+      setShowPlayOverlay(true);
+    }
+    if (event.data === window.YT.PlayerState.ENDED) {
+      await saveProgress();
+      setShowPlayOverlay(true);
+    }
+    if (event.data === window.YT.PlayerState.PLAYING) {
+      setShowPlayOverlay(false);
     }
     // Auto-play next video in playlist on END
     if (
@@ -185,18 +224,22 @@ function YouTubePlayer({
     }
   };
 
-  // Fetch all progress for playlist
+  // Fetch all progress for playlist (uses safeFirestoreGet to tolerate blocked requests on mobile)
   const fetchAllProgress = async () => {
     const result: Record<string, number> = {};
     await Promise.all(
       playlistVideos.map(async (v) => {
         try {
-          const docSnap = await getDoc(getProgressDocRef(v.videoId));
+          const docSnap = await safeFirestoreGet(getProgressDocRef(v.videoId));
+          if (!docSnap) return; // failed after retries
           const data = docSnap.exists() ? docSnap.data() : null;
           if (typeof data?.time === "number") {
             result[v.videoId] = data.time;
           }
-        } catch {}
+        } catch (err) {
+          // swallow per-video errors but log for debugging
+          console.debug("fetchAllProgress: error for", v.videoId, err);
+        }
       })
     );
     savedTimesRef.current = result;
@@ -209,6 +252,7 @@ function YouTubePlayer({
       playlistVideos.find((v) => v.videoId === initialVideoId)?.videoId ||
       fallbackFirstVideoId;
     setCurrentVideoId(validInitial);
+    setShowPlayOverlay(true);
     // eslint-disable-next-line
   }, [initialVideoId, playlistVideos]);
 
@@ -217,6 +261,7 @@ function YouTubePlayer({
     let isMounted = true;
     let destroyRequested = false;
     setLoading(true);
+    setShowPlayOverlay(true);
     const setupPlayer = async () => {
       if (!user) {
         setLoading(false);
@@ -424,18 +469,64 @@ function YouTubePlayer({
         {/* Playlist sidebar */}
         {sidebar}
 
-        {/* Video player with fallback and loading spinner */}
+        {/* Overlays (play button and loading spinner) above the player container */}
         <div className="w-full rounded-2xl overflow-hidden shadow-lg bg-black/80 mt-2 min-h-[250px] relative">
+          {/* Overlay wrapper, sits above the iframe container for proper layering */}
+          <div className="absolute inset-0 pointer-events-none z-30">
+            {/* Play overlay button (mobile-friendly, always above iframe) */}
+            {showPlayOverlay && !loading && (
+              <button
+                type="button"
+                className="absolute inset-0 flex items-center justify-center z-20 bg-black/40 hover:bg-black/60 transition-colors duration-200 pointer-events-auto"
+                style={{
+                  cursor: "pointer",
+                  border: "none",
+                  outline: "none",
+                  width: "100%",
+                  height: "100%",
+                  padding: 0,
+                  background: "rgba(0,0,0,0.40)",
+                }}
+                aria-label="Play video"
+                onClick={() => {
+                  try {
+                    if (playerRef.current && playerRef.current.playVideo) {
+                      playerRef.current.playVideo();
+                    }
+                    setShowPlayOverlay(false);
+                  } catch {}
+                }}
+              >
+                <span
+                  className="flex items-center justify-center rounded-full bg-white/80 hover:bg-white shadow-lg"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    boxShadow: "0 2px 16px rgba(0,0,0,0.30)",
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="24" fill="#26667F" fillOpacity="0.95"/>
+                    <polygon points="19,15 36,24 19,33" fill="#fff"/>
+                  </svg>
+                </span>
+              </button>
+            )}
+            {/* Loading spinner overlay, outside of containerRef */}
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 pointer-events-auto">
+                <Loader2 className="animate-spin text-white" size={48} />
+              </div>
+            )}
+          </div>
+          {/* Only the YouTube iframe should be inside this containerRef */}
           <div
             ref={containerRef}
             className="yt-iframe w-full h-full aspect-video rounded-2xl"
             style={{ position: "relative" }}
           >
-            {loading && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30">
-                <Loader2 className="animate-spin text-white" size={48} />
-              </div>
-            )}
+            {/* Only iframe will be rendered here by YT API */}
           </div>
         </div>
       </div>
@@ -695,4 +786,3 @@ export default function CoursesPage() {
     </main>
   );
 }
-
