@@ -18,6 +18,10 @@ async function fetchPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]>
       },
     });
 
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch playlist, status: ${resp.status}`);
+    }
+
     const html = await resp.text();
     const videos: PlaylistVideo[] = [];
 
@@ -38,6 +42,8 @@ async function fetchPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]>
       titles.push(titleMatch[1]);
     }
 
+    const count = Math.min(ids.length, titles.length);
+
     for (let i = 0; i < ids.length; i++) {
       videos.push({
         videoId: ids[i],
@@ -55,11 +61,16 @@ async function fetchPlaylistVideos(playlistId: string): Promise<PlaylistVideo[]>
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { playlistId: string } }
-) {
+  context: { params: any }
+): Promise<NextResponse> {
+  const params = await context.params;
   const { playlistId } = params;
 
-  const videos = await fetchPlaylistVideos(playlistId);
-
-  return NextResponse.json({ videos });
+  try {
+    const videos = await fetchPlaylistVideos(playlistId);
+    return NextResponse.json({ videos });
+  } catch (error) {
+    console.error("Error in GET handler:", error);
+    return NextResponse.json({ videos: [] }, { status: 500 });
+  }
 }

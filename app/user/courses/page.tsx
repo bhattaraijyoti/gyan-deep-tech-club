@@ -101,9 +101,7 @@ function YouTubePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
-  // For dynamic sidebar position
   const [sidebarSide, setSidebarSide] = useState<'left' | 'right'>('right');
-  // Always use first video if initialVideoId is missing or not in playlistVideos
   const fallbackFirstVideoId = playlistVideos[0]?.videoId || "";
   const initialId =
     playlistVideos.find((v) => v.videoId === initialVideoId)
@@ -111,11 +109,102 @@ function YouTubePlayer({
       : fallbackFirstVideoId;
   const [currentVideoId, setCurrentVideoId] = useState(initialId);
   const [videoProgress, setVideoProgress] = useState<Record<string, number>>({});
-  // const [iframeKey, setIframeKey] = useState(0); // removed: no longer needed
 
-  // Always update currentVideoId when initialVideoId changes
+  // --- Top-level: Progress helpers and player event handlers ---
+  const getProgressDocRef = (videoId: string) =>
+    doc(db, "users", user?.uid, "progress", `${playlistId}:${videoId}`);
+
+  const saveProgressForVideo = async (videoId: string, time: number) => {
+    if (!videoId) return;
+    await setDoc(
+      getProgressDocRef(videoId),
+      { time, videoId, playlistId },
+      { merge: true }
+    );
+  };
+
+  // Saved times for all videos in playlist
+  const savedTimesRef = useRef<Record<string, number>>({});
+
+  // Save progress for current video
+  const saveProgress = async () => {
+    const player = playerRef.current;
+    if (player && player.getCurrentTime && currentVideoId) {
+      const currentTime = player.getCurrentTime();
+      if (isNaN(currentTime)) return;
+      savedTimesRef.current[currentVideoId] = currentTime;
+      setVideoProgress((prev) => ({ ...prev, [currentVideoId]: currentTime }));
+      await saveProgressForVideo(currentVideoId, currentTime);
+    }
+  };
+
+  // onPlayerReady handler
+  const onPlayerReady = () => {
+    const player = playerRef.current;
+    const waitUntilPlayable = () => {
+      try {
+        const duration = player?.getDuration?.();
+        if (duration && duration > 0) {
+          const seekTime = savedTimesRef.current[currentVideoId] ?? 0;
+          if (seekTime > 0) {
+            player.seekTo(seekTime, true);
+            setTimeout(() => player.pauseVideo(), 300);
+          } else {
+            player.pauseVideo();
+          }
+          setLoading(false);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = setInterval(saveProgress, 5000);
+        } else {
+          setTimeout(waitUntilPlayable, 200);
+        }
+      } catch {
+        setTimeout(waitUntilPlayable, 200);
+      }
+    };
+    waitUntilPlayable();
+  };
+
+  // onPlayerStateChange handler
+  const onPlayerStateChange = async (event: any) => {
+    if (
+      event.data === window.YT.PlayerState.PAUSED ||
+      event.data === window.YT.PlayerState.ENDED
+    ) {
+      await saveProgress();
+    }
+    // Auto-play next video in playlist on END
+    if (
+      event.data === window.YT.PlayerState.ENDED &&
+      playlistVideos.length > 1
+    ) {
+      const idx = playlistVideos.findIndex((v) => v.videoId === currentVideoId);
+      if (idx !== -1 && idx < playlistVideos.length - 1) {
+        setCurrentVideoId(playlistVideos[idx + 1].videoId);
+      }
+    }
+  };
+
+  // Fetch all progress for playlist
+  const fetchAllProgress = async () => {
+    const result: Record<string, number> = {};
+    await Promise.all(
+      playlistVideos.map(async (v) => {
+        try {
+          const docSnap = await getDoc(getProgressDocRef(v.videoId));
+          const data = docSnap.exists() ? docSnap.data() : null;
+          if (typeof data?.time === "number") {
+            result[v.videoId] = data.time;
+          }
+        } catch {}
+      })
+    );
+    savedTimesRef.current = result;
+    setVideoProgress(result);
+  };
+
+  // Always update currentVideoId when initialVideoId or playlistVideos changes
   useEffect(() => {
-    // Always render a valid videoId; fallback to first video if needed
     const validInitial =
       playlistVideos.find((v) => v.videoId === initialVideoId)?.videoId ||
       fallbackFirstVideoId;
@@ -123,99 +212,20 @@ function YouTubePlayer({
     // eslint-disable-next-line
   }, [initialVideoId, playlistVideos]);
 
-  // --- Save and restore progress per video ---
+  // Save and restore progress, Player setup
   useEffect(() => {
-    let savedTimes: Record<string, number> = {};
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    const getProgressDocRef = (videoId: string) =>
-      doc(db, "users", user.uid, "progress", `${playlistId}:${videoId}`);
-    const saveProgressForVideo = async (videoId: string, time: number) => {
-      if (!videoId) return;
-      await setDoc(
-        getProgressDocRef(videoId),
-        { time, videoId, playlistId },
-        { merge: true }
-      );
-    };
-    const saveProgress = async () => {
-      const player = playerRef.current;
-      if (player && player.getCurrentTime && currentVideoId) {
-        const currentTime = player.getCurrentTime();
-        if (isNaN(currentTime)) return;
-        savedTimes[currentVideoId] = currentTime;
-        setVideoProgress((prev) => ({ ...prev, [currentVideoId]: currentTime }));
-        await saveProgressForVideo(currentVideoId, currentTime);
-      }
-    };
-    const onPlayerReady = () => {
-      const player = playerRef.current;
-      const waitUntilPlayable = () => {
-        try {
-          const duration = player?.getDuration?.();
-          if (duration && duration > 0) {
-            const seekTime = savedTimes[currentVideoId] ?? 0;
-            if (seekTime > 0) {
-              player.seekTo(seekTime, true);
-              setTimeout(() => player.pauseVideo(), 300);
-            } else {
-              player.pauseVideo();
-            }
-            setLoading(false);
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            intervalRef.current = setInterval(saveProgress, 5000);
-          } else {
-            setTimeout(waitUntilPlayable, 200);
-          }
-        } catch {
-          setTimeout(waitUntilPlayable, 200);
-        }
-      };
-      waitUntilPlayable();
-    };
-    const onPlayerStateChange = async (event: any) => {
-      if (
-        event.data === window.YT.PlayerState.PAUSED ||
-        event.data === window.YT.PlayerState.ENDED
-      ) {
-        await saveProgress();
-      }
-      // Auto-play next video in playlist on END
-      if (
-        event.data === window.YT.PlayerState.ENDED &&
-        playlistVideos.length > 1
-      ) {
-        const idx = playlistVideos.findIndex((v) => v.videoId === currentVideoId);
-        if (idx !== -1 && idx < playlistVideos.length - 1) {
-          setCurrentVideoId(playlistVideos[idx + 1].videoId);
-        }
-      }
-    };
-    const fetchAllProgress = async () => {
-      savedTimes = {};
-      await Promise.all(
-        playlistVideos.map(async (v) => {
-          try {
-            const docSnap = await getDoc(getProgressDocRef(v.videoId));
-            const data = docSnap.exists() ? docSnap.data() : null;
-            if (typeof data?.time === "number") {
-              savedTimes[v.videoId] = data.time;
-            }
-          } catch {}
-        })
-      );
-      setVideoProgress(savedTimes);
-    };
-    // --- YouTube Player setup ---
+    let isMounted = true;
+    let destroyRequested = false;
+    setLoading(true);
     const setupPlayer = async () => {
-      console.log("🎬 Setting up YouTube player for playlist:", playlistId, "initial video:", currentVideoId);
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       await loadYouTubeAPI();
       if (!containerRef.current) return;
       await fetchAllProgress();
-      let player = playerRef.current;
-      const iframeId = `${containerId}-iframe`;
+      if (!isMounted || destroyRequested) return;
       const allVideoIds = playlistVideos.map((v) => v.videoId);
       let videoIdIndex = allVideoIds.indexOf(currentVideoId);
       let videoId = currentVideoId;
@@ -230,16 +240,12 @@ function YouTubePlayer({
           ...allVideoIds.slice(0, videoIdIndex),
         ];
       }
-      // Remove/add iframe container div as needed for robust reloads
-      const parent = containerRef.current;
-      let newDiv = document.getElementById(iframeId);
-      if (!newDiv) {
-        newDiv = document.createElement("div");
-        newDiv.id = iframeId;
-        newDiv.className = "yt-iframe w-full h-full";
-        parent.appendChild(newDiv);
-      } else if (!parent.contains(newDiv)) {
-        parent.appendChild(newDiv);
+      // Always clear previous player instance
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {}
+        playerRef.current = null;
       }
       const playerOptions: any = {
         height: "100%",
@@ -251,7 +257,7 @@ function YouTubePlayer({
           rel: 0,
           fs: 1,
           autoplay: 0,
-          start: savedTimes[videoId] ?? 0,
+          start: savedTimesRef.current[videoId] ?? 0,
           playsinline: 1,
           origin: window.location.origin,
           enablejsapi: 1,
@@ -259,12 +265,10 @@ function YouTubePlayer({
         },
         events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange },
       };
-      player = new window.YT.Player(iframeId, playerOptions);
-      playerRef.current = player;
-      // Set attributes for iOS/mobile/iPad
+      playerRef.current = new window.YT.Player(containerRef.current, playerOptions);
       setTimeout(() => {
-        const iframeEl = document
-          .querySelector(`#${iframeId} iframe`) as HTMLIFrameElement | null;
+        if (!containerRef.current) return;
+        const iframeEl = containerRef.current.querySelector("iframe") as HTMLIFrameElement | null;
         if (iframeEl) {
           iframeEl.setAttribute(
             "allow",
@@ -283,21 +287,14 @@ function YouTubePlayer({
           iframeEl.style.display = "block";
         }
       }, 400);
-      setTimeout(() => setLoading(false), 500);
-    };
-    setLoading(true);
-    setupPlayer();
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(saveProgress, 5000);
-    return () => {
+      setTimeout(() => { if (isMounted) setLoading(false); }, 500);
       if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(saveProgress, 5000);
     };
-    // eslint-disable-next-line
-  }, [user, playlistId, currentVideoId, containerId, playlistVideos]);
-
-  // Destroy player if playlistId changes (full playlist switch)
-  useEffect(() => {
+    setupPlayer();
     return () => {
+      isMounted = false;
+      destroyRequested = true;
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
@@ -310,7 +307,7 @@ function YouTubePlayer({
       }
     };
     // eslint-disable-next-line
-  }, [playlistId, containerId]);
+  }, [user, playlistId, currentVideoId, containerId, playlistVideos]);
 
   // --- Dynamic sidebar position logic ---
   useEffect(() => {
@@ -322,17 +319,11 @@ function YouTubePlayer({
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
-      // If most of the player is on the right, show sidebar on far left.
       if (rect.left > viewportWidth * 0.55) {
         setSidebarSide("left");
-      }
-      // If most of the player is on the left, show sidebar on far right.
-      else if (rect.right < viewportWidth * 0.45) {
+      } else if (rect.right < viewportWidth * 0.45) {
         setSidebarSide("right");
-      }
-      // If player is near the center, pick the side with more space
-      else {
-        // Distance from left and right edges
+      } else {
         const leftSpace = rect.left;
         const rightSpace = viewportWidth - rect.right;
         setSidebarSide(leftSpace > rightSpace ? "left" : "right");
@@ -414,7 +405,6 @@ function YouTubePlayer({
   return (
     <div className="w-full">
       <div
-        ref={containerRef}
         className="yt-wrapper relative w-full bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-lg border border-gray-200"
         style={{ minHeight: "250px", maxWidth: "100%", width: "100%", position: "relative" }}
       >
@@ -436,17 +426,17 @@ function YouTubePlayer({
 
         {/* Video player with fallback and loading spinner */}
         <div className="w-full rounded-2xl overflow-hidden shadow-lg bg-black/80 mt-2 min-h-[250px] relative">
-          <>
+          <div
+            ref={containerRef}
+            className="yt-iframe w-full h-full aspect-video rounded-2xl"
+            style={{ position: "relative" }}
+          >
             {loading && (
               <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30">
                 <Loader2 className="animate-spin text-white" size={48} />
               </div>
             )}
-            <div
-              id={`${containerId}-iframe`}
-              className="yt-iframe w-full h-full aspect-video rounded-2xl"
-            />
-          </>
+          </div>
         </div>
       </div>
     </div>
@@ -705,5 +695,4 @@ export default function CoursesPage() {
     </main>
   );
 }
-
 
