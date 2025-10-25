@@ -366,8 +366,6 @@ function YouTubePlayer({
                 type="button"
                 onClick={() => {
                   setShowSidebar(false);
-                  if (setActivePlaylist) setActivePlaylist(null);
-                  if (setSelectedVideoId) setSelectedVideoId(null);
                 }}
                 className="top-0 right-0 text-white text-2xl font-bold p-2 bg-[#26667F] rounded-full hover:bg-[#1f5060] transition cursor-pointer pointer-events-auto shadow"
                 aria-label="Close playlist"
@@ -420,30 +418,18 @@ function YouTubePlayer({
         className="yt-wrapper relative w-full bg-white rounded-2xl overflow-hidden flex flex-col items-center justify-center shadow-lg border border-gray-200"
         style={{ minHeight: "250px", maxWidth: "100%", width: "100%", position: "relative" }}
       >
-        {/* Playlist sidebar button (always visible on mobile, fixed at top-right using portal) */}
-        {typeof document !== "undefined" &&
-          ReactDOM.createPortal(
-            <button
-              className={`fixed top-3 right-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-base z-[9999] shadow-md hover:bg-[#1f5060] focus:outline-none focus:ring-2 focus:ring-[#26667F] transition sm:absolute sm:top-3 ${sidebarSide === "left" ? "sm:left-3 sm:right-auto" : "sm:right-3 sm:left-auto"}`}
-              style={{
-                zIndex: 9999,
-                top: "0.75rem",
-                right: "0.75rem",
-                // On desktop, position absolutely within player container
-                ...(typeof window !== "undefined" && window.innerWidth >= 640
-                  ? (sidebarSide === "left"
-                      ? { left: "0.75rem", right: "auto", position: "absolute" }
-                      : { right: "0.75rem", left: "auto", position: "absolute" })
-                  : { left: "auto", right: "0.75rem", position: "fixed" }),
-              }}
-              onClick={() => setShowSidebar((v) => !v)}
-              aria-label="Open playlist"
-            >
-              <span className="mr-2">▶️</span> Playlist
-            </button>,
-            document.body
-          )
-        }
+        {/* Playlist sidebar button near the video, dynamic position with hover animation */}
+        <button
+          className="absolute top-3 bg-[#26667F] text-white px-3 py-1.5 rounded-md text-base z-20 shadow-md hover:bg-[#1f5060] transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+          style={{
+            right: typeof window !== "undefined" && window.innerWidth >= 640 ? "0.75rem" : "auto", // desktop: right
+            left: typeof window !== "undefined" && window.innerWidth < 640 ? "0.75rem" : "auto", // mobile: left
+          }}
+          onClick={() => setShowSidebar((v) => !v)}
+          aria-label="Open playlist"
+        >
+          <span className="mr-2">▶️</span> Playlist
+        </button>
 
         {/* Playlist sidebar */}
         {sidebar}
