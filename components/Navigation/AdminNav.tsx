@@ -52,11 +52,22 @@ export default function AdminNav({ user }: { user: User }) {
               Announcements
             </Link>
           </div>
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            className="md:hidden flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+            aria-controls="mobile-menu"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <span className="sr-only">Open main menu</span>
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </div>
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden px-4 pb-4">
+        <div className="md:hidden px-4 pb-4" id="mobile-menu">
           <div className="flex flex-col space-y-2 mt-2 bg-background rounded-xl p-4 border border-border/40 shadow-lg">
             <Link
               href="/admin"
