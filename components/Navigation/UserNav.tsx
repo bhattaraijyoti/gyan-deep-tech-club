@@ -1,20 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // <-- import
+import { usePathname, useRouter } from "next/navigation"; // <-- import useRouter
 import { Button } from "@/components/ui/button";
 import { Menu, X, User as UserIcon } from "lucide-react";
-import { User } from "firebase/auth";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 
-interface UserNavProps {
-  user: User;
-}
-
-export default function UserNav({ user }: UserNavProps) {
+export default function UserNav() {
+  const [user, setUser] = useState<User | null | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname(); // <-- get current path
+  const router = useRouter();
 
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser && (pathname === "/login" || pathname === "/signup")) {
+        router.replace("/user");
+      }
+    });
+    return () => unsubscribe();
+  }, [pathname, router]);
+
+  if (user === undefined) return null;
   if (!user) return null;
 
   const navLinks = [

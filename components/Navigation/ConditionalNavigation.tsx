@@ -20,21 +20,21 @@ export default function ConditionalNavigation() {
       setFirebaseUser(user);
 
       if (user) {
-        try {
-          // ✅ Fetch Firestore user directly
-          const userData = await getUser(user.uid);
-
-          if (userData?.roleType.includes("admin")) {
-            setRoletype("admin");
-          } else if (userData?.roleType.includes("student")) {
-            setRoletype("student");
-          } else {
+        // Start fetching user role in background without blocking UI
+        getUser(user.uid)
+          .then((userData) => {
+            if (userData?.roleType.includes("admin")) {
+              setRoletype("admin");
+            } else if (userData?.roleType.includes("student")) {
+              setRoletype("student");
+            } else {
+              setRoletype(null);
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching Firestore user:", error);
             setRoletype(null);
-          }
-        } catch (error) {
-          console.error("Error fetching Firestore user:", error);
-          setRoletype(null);
-        }
+          });
       } else {
         setRoletype(null);
       }
@@ -69,10 +69,6 @@ export default function ConditionalNavigation() {
     return <AdminNav user={firebaseUser} />;
   }
 
-  // ✅ Default: Show UserNav for both "student" and "admin"
-  if (roletype === "student" || roletype === "admin") {
-    return <UserNav user={firebaseUser} />;
-  }
-
-  return <Navigation />;
+  // ✅ Immediately show UserNav once firebaseUser exists, regardless of role fetch
+  return <UserNav user={firebaseUser} />;
 }
