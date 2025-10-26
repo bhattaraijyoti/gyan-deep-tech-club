@@ -107,6 +107,27 @@ async function safeFirestoreGet(docRef: any, maxRetries = 2, baseDelay = 800) {
   return null;
 }
 
+// --- Sidebar side helper ---
+function getSidebarSideForElement(el: HTMLElement): 'left' | 'right' {
+  const rect = el.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const rightThreshold = viewportWidth * 0.8; // last 20% of screen = far right
+  const isTabletOrDesktop = viewportWidth >= 740; // include iPads in landscape/portrait
+
+  console.log("🧭 Sidebar position check:", {
+    elementRight: rect.right,
+    viewportWidth,
+    rightThreshold,
+    isTabletOrDesktop,
+    side: isTabletOrDesktop && rect.right >= rightThreshold ? 'left' : 'right',
+  });
+
+  if (isTabletOrDesktop && rect.right >= rightThreshold) {
+    return 'left';
+  }
+  return 'right';
+}
+
 // --- Responsive YouTubePlayer with Full Playlist Support, Progress Saving, and Mobile/iPad Fixes (updated component) ---
 function YouTubePlayer({
   playlistId,
@@ -170,7 +191,7 @@ function YouTubePlayer({
       setVideoProgress((prev) => {
         const updated = { ...prev, [currentVideoId]: currentTime };
         if (onVideoProgressChange) {
-          onVideoProgressChange(updated);
+          setTimeout(() => onVideoProgressChange(updated), 0);
         }
         return updated;
       });
@@ -253,7 +274,7 @@ function YouTubePlayer({
     savedTimesRef.current = result;
     setVideoProgress(() => {
       if (onVideoProgressChange) {
-        onVideoProgressChange(result);
+        setTimeout(() => onVideoProgressChange(result), 0);
       }
       return result;
     });
@@ -375,16 +396,7 @@ function YouTubePlayer({
       return;
     }
     if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      // If the player is on the far right of the viewport (desktop or iPad, width ≥ 768px),
-      // always place the sidebar on the far left.
-      if (viewportWidth >= 768 && rect.right >= viewportWidth - 48) {
-        setSidebarSide("left");
-      } else {
-        // Default: right side
-        setSidebarSide("right");
-      }
+      setSidebarSide(getSidebarSideForElement(containerRef.current));
     }
   }, [showSidebar]);
 
@@ -621,18 +633,22 @@ export default function CoursesPage() {
 
   // Ensure only one playlist sidebar is open at a time (across all courses)
   const setSidebarOpen = (courseId: string, playlistId: string, open: boolean) => {
-    setSidebarOpenMap((prev) => {
+    if (open) {
+      const side = determineSidebarSide(courseId, playlistId);
+      setSidebarSideMap(prev => {
+        const updated = { ...prev };
+        if (!updated[courseId]) updated[courseId] = {};
+        updated[courseId][playlistId] = side;
+        return updated;
+      });
+    }
+    setSidebarOpenMap(prev => {
       if (open) {
-        // Close all others, open only this playlist
         const newMap: Record<string, boolean> = {};
         newMap[`${courseId}:${playlistId}`] = true;
         return newMap;
       } else {
-        // Just close the specific sidebar
-        return {
-          ...prev,
-          [`${courseId}:${playlistId}`]: false,
-        };
+        return { ...prev, [`${courseId}:${playlistId}`]: false };
       }
     });
   };
@@ -646,13 +662,7 @@ export default function CoursesPage() {
   // Helper to determine sidebar side for a playlist given courseId and playlistId
   const determineSidebarSide = (courseId: string, playlistId: string) => {
     if (typeof window === "undefined" || !cardRefs.current[courseId]) return "right";
-    const rect = cardRefs.current[courseId]!.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    // If card is near right edge (within 48px), put sidebar left (desktop/iPad)
-    if (viewportWidth >= 768 && rect.right >= viewportWidth - 48) {
-      return "left";
-    }
-    return "right";
+    return getSidebarSideForElement(cardRefs.current[courseId]!);
   };
 
   // Watch for sidebar open changes, update sidebarSideMap for all open sidebars
