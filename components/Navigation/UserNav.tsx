@@ -6,10 +6,13 @@ import { usePathname, useRouter } from "next/navigation"; // <-- import useRoute
 import { Button } from "@/components/ui/button";
 import { Menu, X, User as UserIcon } from "lucide-react";
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { getFirestore, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
 export default function UserNav() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
+  const [hasNewAnnouncement, setHasNewAnnouncement] = useState(false);
+  const [newAnnouncementCount, setNewAnnouncementCount] = useState(0);
   const pathname = usePathname(); // <-- get current path
   const router = useRouter();
 
@@ -23,6 +26,45 @@ export default function UserNav() {
     });
     return () => unsubscribe();
   }, [pathname, router]);
+
+  useEffect(() => {
+    const checkAnnouncements = async () => {
+      try {
+        const db = getFirestore();
+        const lastSeen = parseInt(localStorage.getItem("lastSeenAnnouncement") || "0", 10);
+
+        const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        let count = 0;
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const createdAt = data.createdAt?.toMillis?.() || 0;
+          if (createdAt > lastSeen) count++;
+        });
+
+        if (count > 0) {
+          setHasNewAnnouncement(true);
+          setNewAnnouncementCount(count);
+        } else {
+          setHasNewAnnouncement(false);
+          setNewAnnouncementCount(0);
+        }
+      } catch (error) {
+        console.error("Error checking announcements:", error);
+      }
+    };
+
+    checkAnnouncements();
+  }, []);
+
+  useEffect(() => {
+    if (pathname === "/user/announcements") {
+      localStorage.setItem("lastSeenAnnouncement", Date.now().toString());
+      setHasNewAnnouncement(false);
+      setNewAnnouncementCount(0);
+    }
+  }, [pathname]);
 
   if (user === undefined) return null;
   if (!user) return null;
@@ -42,7 +84,7 @@ export default function UserNav() {
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 hover-glow">
               <UserIcon className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold gradient-text">Tech Club</span>
+            <span className="text-2xl font-bold gradient-text">Gyan Tech Club</span>
           </Link>
 
           <div className="hidden lg:flex items-center space-x-8">
@@ -56,7 +98,14 @@ export default function UserNav() {
                     : "text-muted-foreground hover:text-primary"
                 }`}
               >
-                {link.label}
+                <span className="relative">
+                  {link.label}
+                  {link.href === "/user/announcements" && hasNewAnnouncement && (
+                    <span className="absolute -top-3 -right-4 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full animate-pulse min-w-[18px] text-center">
+                      {newAnnouncementCount}
+                    </span>
+                  )}
+                </span>
               </Link>
             ))}
 
@@ -95,7 +144,14 @@ export default function UserNav() {
                     : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                 }`}
               >
-                {link.label}
+                <span className="relative">
+                  {link.label}
+                  {link.href === "/user/announcements" && hasNewAnnouncement && (
+                    <span className="absolute -top-3 -right-4 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full animate-pulse min-w-[18px] text-center">
+                      {newAnnouncementCount}
+                    </span>
+                  )}
+                </span>
               </Link>
             ))}
 
