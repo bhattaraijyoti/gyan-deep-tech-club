@@ -18,7 +18,7 @@ export function Navigation() {
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 hover-glow">
               <Code2 className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold gradient-text">Gyan Deep Tech</span>
+            <span className="text-2xl font-bold gradient-text">Tech Club</span>
           </Link>
 
           <div className="hidden md:flex items-center space-x-8">
