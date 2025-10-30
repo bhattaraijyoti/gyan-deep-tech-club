@@ -30,7 +30,7 @@ export default function UserHomePage() {
       id: 2,
       title: "Resources",
       description: "Access curated tools and resources for students.",
-      link: "/user/resources",
+      link: "/resources",
       badge: "Tools",
     },
     {

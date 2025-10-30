@@ -84,7 +84,7 @@ export default function UserNav() {
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center group-hover:scale-110 transition-all duration-300 hover-glow">
               <UserIcon className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold gradient-text">Gyan Tech Club</span>
+            <span className="text-2xl font-bold gradient-text">Tech Club</span>
           </Link>
 
           <div className="hidden lg:flex items-center space-x-8">
