@@ -751,52 +751,61 @@ export default function CoursesPage() {
                       cardRefs.current[course.id] = el;
                     }}
                     className="hover:shadow-2xl transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
-                    style={{ minHeight: "280px" }}
+                    style={{ minHeight: "330px" }}
                   >
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 pb-0">
-                      <div
-                        className={`flex items-center gap-2 ${
-                          activePlaylist?.courseId === course.id ? "w-full" : "w-auto"
-                        }`}
-                      >
+                      <div className="flex items-center w-full">
                         <CardTitle
-                          className={`text-xl font-bold text-[#26667F] transition ${
+                          className={`text-xl font-bold text-[#26667F] transition flex-1 ${
                             activePlaylist?.courseId === course.id
-                              ? "flex-1 whitespace-normal"
+                              ? "whitespace-normal"
                               : "truncate"
                           }`}
                         >
                           {course.title}
                         </CardTitle>
-                        {/* Playlist button beside course title (only for active playlist) */}
-                        {uniquePlaylists.length > 0 &&
-                          activePlaylist &&
-                          activePlaylist.courseId === course.id &&
-                          uniquePlaylists.some(pid => pid === activePlaylist.playlistId) && (
-                            <button
-                              key={activePlaylist.playlistId}
-                              className={`flex items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-md px-2 py-1 text-white text-sm shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
-                                ${
-                                  sidebarOpenMap[`${course.id}:${activePlaylist.playlistId}`]
-                                    ? "border-[#26667F] scale-[1.04] shadow-lg"
-                                    : "hover:scale-[1.03]"
-                                }
-                              `}
-                              onClick={() =>
-                                setSidebarOpen(
-                                  course.id,
-                                  activePlaylist.playlistId,
-                                  !sidebarOpenMap[`${course.id}:${activePlaylist.playlistId}`]
-                                )
+                        {/* Playlist button always aligned right, always visible if course has playlists */}
+                        {uniquePlaylists.length > 0 && (
+                          <button
+                            key="playlist-main"
+                            className={`flex items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-md px-2 py-1 text-white text-sm shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer ml-2
+                              ${
+                                activePlaylist &&
+                                activePlaylist.courseId === course.id &&
+                                sidebarOpenMap[`${course.id}:${uniquePlaylists[0]}`]
+                                  ? "border-[#26667F] scale-[1.04] shadow-lg"
+                                  : "hover:scale-[1.03]"
                               }
-                              type="button"
-                              aria-label={`Toggle playlist`}
-                              style={{ marginLeft: 4 }}
-                            >
-                              <span className="mr-1">▶️</span>
-                              Playlist
-                            </button>
-                          )}
+                            `}
+                            onClick={async () => {
+                              // Always set the first playlist as active and open sidebar
+                              const pid = uniquePlaylists[0];
+                              // Always fetch latest playlist videos from API route and set them
+                              try {
+                                const resp = await fetch(`/api/playlist/${pid}`);
+                                let vids: PlaylistVideo[] = [];
+                                if (resp.ok) {
+                                  const data = await resp.json();
+                                  vids = Array.isArray(data.videos) ? data.videos : [];
+                                }
+                                setPlaylistMap((prev) => ({ ...prev, [pid]: vids || [] }));
+                                setActivePlaylist({ courseId: course.id, playlistId: pid });
+                                const firstVideo = vids?.[0]?.videoId || "";
+                                setSelectedVideoId(firstVideo);
+                              } catch (err) {
+                                setPlaylistMap((prev) => ({ ...prev, [pid]: [] }));
+                                setActivePlaylist({ courseId: course.id, playlistId: pid });
+                                setSelectedVideoId("");
+                              }
+                              setSidebarOpen(course.id, pid, !sidebarOpenMap[`${course.id}:${pid}`] ? true : false);
+                            }}
+                            type="button"
+                            aria-label={`Open playlist`}
+                          >
+                            <span className="mr-1">▶️</span>
+                            Playlist
+                          </button>
+                        )}
                       </div>
                       <Badge className="uppercase tracking-wide text-xs bg-[#66A6B2] text-white px-3 py-1 rounded-full shadow">
                         {course.language}
