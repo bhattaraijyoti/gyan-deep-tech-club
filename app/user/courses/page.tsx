@@ -750,7 +750,7 @@ export default function CoursesPage() {
                     ref={(el) => {
                       cardRefs.current[course.id] = el;
                     }}
-                    className="hover:shadow-2xl transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
+                    className="transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
                     style={{ minHeight: "330px" }}
                   >
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 pb-0">
@@ -819,97 +819,92 @@ export default function CoursesPage() {
                             No playlists available for this course.
                           </p>
                         ) : (
-                          <div className="flex gap-3 overflow-x-auto justify-center py-2 -mx-3 px-3">
+                          <div className="flex gap-4 overflow-x-auto justify-center py-2 -mx-3 px-3">
                             {uniquePlaylists.map((pid, i) => {
                               const list = playlistMap[pid] || [];
                               // Use first video as thumbnail, fallback to YouTube default if missing
                               const thumb = list[0]?.thumbnail || (list[0]?.videoId ? `https://img.youtube.com/vi/${list[0].videoId}/mqdefault.jpg` : "");
+                              // Determine if this is the active playlist
+                              const isActive = activePlaylist &&
+                                activePlaylist.courseId === course.id &&
+                                activePlaylist.playlistId === pid;
+                              // Is the selected video in this playlist?
+                              const isThisPlaylistSelected = isActive;
                               return (
-                                <button
+                                <div
                                   key={pid}
-                                  className={`flex flex-col items-center bg-white hover:bg-[# rounded-xl p-2.5 text-black w-36 min-w-[22rem] shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
+                                  className={`flex flex-col items-center w-full max-w-full sm:max-w-xs md:max-w-sm bg-white hover:bg-gray-50 rounded-2xl p-0 text-black shadow-md border-2 border-transparent transition-all duration-200
                                     ${
-                                      activePlaylist &&
-                                      activePlaylist.courseId === course.id &&
-                                      activePlaylist.playlistId === pid
-                                        ? "border-[#26667F] scale-[1.04] shadow-lg"
-                                        : "hover:scale-[1.03]"
+                                      isActive
+                                        ? "border-[#26667F] scale-[1.03] shadow-lg"
+                                        : "hover:scale-[1.01]"
                                     }
                                   `}
-                                  onClick={async () => {
-                                    console.log("🎯 Playlist clicked:", pid, "for course:", course.id);
-                                    // Always fetch latest playlist videos from API route and set them
-                                    try {
-                                      const resp = await fetch(`/api/playlist/${pid}`);
-                                      let vids: PlaylistVideo[] = [];
-                                      if (resp.ok) {
-                                        const data = await resp.json();
-                                        vids = Array.isArray(data.videos) ? data.videos : [];
-                                      }
-                                      setPlaylistMap((prev) => ({ ...prev, [pid]: vids || [] }));
-                                      console.log("✅ Playlist loaded:", vids?.length || 0, "videos");
-                                      // Activate the playlist and select first video
-                                      setActivePlaylist({ courseId: course.id, playlistId: pid });
-                                      const firstVideo = vids?.[0]?.videoId || "";
-                                      setSelectedVideoId(firstVideo);
-                                    } catch (err) {
-                                      console.error("❌ Failed to load playlist:", pid, err);
-                                      setPlaylistMap((prev) => ({ ...prev, [pid]: [] }));
-                                      setActivePlaylist({ courseId: course.id, playlistId: pid });
-                                      setSelectedVideoId("");
-                                    }
+                                  style={{
+                                    minWidth: "min(320px,90vw)",
+                                    maxWidth: "480px",
+                                    flex: "1 1 280px",
                                   }}
                                 >
-                                  {thumb && (
-                                    <img
-                                      src={thumb}
-                                      alt="Playlist thumbnail"
-                                      className="w-full h-24 object-cover rounded-lg mb-2 shadow"
-                                    />
-                                  )}
-                                  <span className="font-semibold truncate w-full text-center">
-                                    Playlist {i + 1}
-                                  </span>
-                                  <span className="text-xs opacity-80 mt-1">
-                                    {list.length > 0
-                                      ? `${list.length} videos`
-                                      : "Loading..."}
-                                  </span>
-                                </button>
+                                  <div
+                                    className="w-full aspect-video relative rounded-2xl overflow-hidden shadow-lg"
+                                    style={{
+                                      minHeight: "0",
+                                      width: "100%",
+                                      background: "#e5e7eb",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    {/* If active, render player directly in the thumbnail area */}
+                                    {isThisPlaylistSelected && list.length > 0 ? (
+                                      <YouTubePlayer
+                                        playlistId={pid}
+                                        playlistVideos={list}
+                                        initialVideoId={
+                                          selectedVideoId && list.some(v => v.videoId === selectedVideoId)
+                                            ? selectedVideoId
+                                            : list[0].videoId
+                                        }
+                                        containerId={`yt-player-thumb-${course.id}-${pid}`}
+                                        user={user}
+                                        setActivePlaylist={setActivePlaylist}
+                                        setSelectedVideoId={setSelectedVideoId}
+                                        onVideoProgressChange={(progress) => {
+                                          setPlaylistProgressMap(prev => ({
+                                            ...prev,
+                                            [pid]: progress,
+                                          }));
+                                        }}
+                                      />
+                                    ) : (
+                                      <>
+                                        {thumb && (
+                                          <img
+                                            src={thumb}
+                                            alt="Playlist thumbnail"
+                                            className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                                            style={{ objectFit: "cover", width: "100%", height: "100%" }}
+                                          />
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                  {/* Label for number of videos, below thumbnail */}
+                                  <div className="w-full flex flex-col items-center px-2 py-2">
+                                    <span className="text-xs opacity-80 mt-1">
+                                      {list.length > 0
+                                        ? `${list.length} videos`
+                                        : "Loading..."}
+                                    </span>
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
                         )}
-                        {/* Show the YouTube player for this course/playlist if selected */}
-                        {activePlaylist &&
-                          activePlaylist.courseId === course.id &&
-                          playlistMap[activePlaylist.playlistId] &&
-                          playlistMap[activePlaylist.playlistId].length > 0 && (
-                            <>
-                              {console.log("🎬 Rendering YouTubePlayer for:", activePlaylist.playlistId)}
-                              <div className="mt-4 w-full">
-                                <YouTubePlayer
-                                  playlistId={activePlaylist.playlistId}
-                                  playlistVideos={playlistMap[activePlaylist.playlistId]}
-                                  initialVideoId={
-                                    selectedVideoId && playlistMap[activePlaylist.playlistId].some(v => v.videoId === selectedVideoId)
-                                      ? selectedVideoId
-                                      : playlistMap[activePlaylist.playlistId][0].videoId
-                                  }
-                                  containerId={`yt-player-${course.id}-${activePlaylist.playlistId}`}
-                                  user={user}
-                                  setActivePlaylist={setActivePlaylist}
-                                  setSelectedVideoId={setSelectedVideoId}
-                                  onVideoProgressChange={(progress) => {
-                                    setPlaylistProgressMap(prev => ({
-                                      ...prev,
-                                      [activePlaylist.playlistId]: progress,
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            </>
-                          )}
+                        {/* No separate large player below thumbnails */}
                         {/* Playlist sidebar per course+playlist */}
                         {uniquePlaylists.map((pid, i) => {
                           const list = playlistMap[pid] || [];
