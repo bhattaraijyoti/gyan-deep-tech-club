@@ -427,9 +427,9 @@ function YouTubePlayer({
                   key={v.videoId || idx}
                   onClick={() => {
                     setCurrentVideoId(v.videoId);
-                    setShowSidebar(false);
+                    // setShowSidebar(false);
                   }}
-                  className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent
+                  className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent cursor-pointer
                     ${
                       v.videoId === currentVideoId
                         ? "bg-[#26667F] text-white shadow-lg border-[#26667F] scale-[1.03]"
@@ -476,7 +476,7 @@ function YouTubePlayer({
             {showPlayOverlay && !loading && (
               <button
                 type="button"
-                className="absolute inset-0 flex items-center justify-center z-20 bg-black/40 hover:bg-black/60 transition-colors duration-200 pointer-events-auto"
+                className="absolute inset-0 flex items-center justify-center z-20 bg-black/40 hover:bg-black/60 transition-colors duration-200 pointer-events-auto cursor-pointer"
                 style={{
                   cursor: "pointer",
                   border: "none",
@@ -755,7 +755,7 @@ export default function CoursesPage() {
                           uniquePlaylists.some(pid => pid === activePlaylist.playlistId) && (
                             <button
                               key={activePlaylist.playlistId}
-                              className={`flex items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-md px-2 py-1 text-white text-sm shadow-md border-2 border-transparent transition-all duration-200
+                              className={`flex items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-md px-2 py-1 text-white text-sm shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
                                 ${
                                   sidebarOpenMap[`${course.id}:${activePlaylist.playlistId}`]
                                     ? "border-[#26667F] scale-[1.04] shadow-lg"
@@ -798,7 +798,7 @@ export default function CoursesPage() {
                               return (
                                 <button
                                   key={pid}
-                                  className={`flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-xl p-2.5 text-white w-36 min-w-[8.5rem] shadow-md border-2 border-transparent transition-all duration-200
+                                  className={`flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-xl p-2.5 text-white w-36 min-w-[22rem] shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
                                     ${
                                       activePlaylist &&
                                       activePlaylist.courseId === course.id &&
@@ -934,9 +934,9 @@ export default function CoursesPage() {
                                     onClick={() => {
                                       setActivePlaylist({ courseId: course.id, playlistId: pid });
                                       setSelectedVideoId(v.videoId);
-                                      setSidebarOpen(course.id, pid, false);
+                                      // setSidebarOpen(course.id, pid, false);
                                     }}
-                                    className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent
+                                    className={`flex items-center gap-3 p-2 rounded-lg shadow-sm transition-all duration-200 border border-transparent cursor-pointer
                                       ${
                                         v.videoId === selectedVideoId
                                           ? "bg-[#26667F] text-white shadow-lg border-[#26667F] scale-[1.03]"
