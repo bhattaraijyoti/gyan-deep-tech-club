@@ -729,7 +729,7 @@ export default function CoursesPage() {
         ) : (
           <div className="pb-10">
             {/* Playlists and player visible for all devices */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
               {filteredCourses.map((course, courseIdx) => {
                 // Gather all playlists for this course
                 const playlists = (course.videos || [])
@@ -751,11 +751,21 @@ export default function CoursesPage() {
                       cardRefs.current[course.id] = el;
                     }}
                     className="hover:shadow-2xl transition-transform duration-200 flex flex-col rounded-2xl bg-white border border-gray-100 group"
-                    style={{ minHeight: "340px" }}
+                    style={{ minHeight: "280px" }}
                   >
                     <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 pb-0">
-                      <div className="flex items-center gap-2 w-full">
-                        <CardTitle className="text-xl font-bold text-[#26667F] group-hover:text-[#1f5060] transition flex-1">
+                      <div
+                        className={`flex items-center gap-2 ${
+                          activePlaylist?.courseId === course.id ? "w-full" : "w-auto"
+                        }`}
+                      >
+                        <CardTitle
+                          className={`text-xl font-bold text-[#26667F] transition ${
+                            activePlaylist?.courseId === course.id
+                              ? "flex-1 whitespace-normal"
+                              : "truncate"
+                          }`}
+                        >
                           {course.title}
                         </CardTitle>
                         {/* Playlist button beside course title (only for active playlist) */}
@@ -808,7 +818,7 @@ export default function CoursesPage() {
                               return (
                                 <button
                                   key={pid}
-                                  className={`flex flex-col items-center bg-[#26667F]/90 hover:bg-[#26667F] rounded-xl p-2.5 text-white w-36 min-w-[22rem] shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
+                                  className={`flex flex-col items-center bg-white hover:bg-[# rounded-xl p-2.5 text-black w-36 min-w-[22rem] shadow-md border-2 border-transparent transition-all duration-200 cursor-pointer
                                     ${
                                       activePlaylist &&
                                       activePlaylist.courseId === course.id &&
