@@ -572,43 +572,41 @@ export default function CoursesPage() {
 
   useEffect(() => {
     if (!user) return;
-    const fetchCoursesAndPlaylists = async () => {
+
+    const fetchCourses = async () => {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, "courses"));
       const courseList: Course[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Course[];
-      setCourses(courseList);
 
-      // Start fetching playlists in parallel
+      // Show courses immediately
+      setCourses(courseList);
+      setLoading(false);
+
+      // Fetch playlists in background
       const playlistIds = new Set<string>();
-      for (const course of courseList) {
-        for (const url of course.videos || []) {
+      courseList.forEach(course => {
+        course.videos?.forEach(url => {
           const { playlistId } = parseYouTubeUrl(url);
           if (playlistId) playlistIds.add(playlistId);
+        });
+      });
+
+      Array.from(playlistIds).forEach(async (pid) => {
+        try {
+          const resp = await fetch(`/api/playlist/${pid}`);
+          if (!resp.ok) return;
+          const data = await resp.json();
+          setPlaylistMap(prev => ({ ...prev, [pid]: Array.isArray(data.videos) ? data.videos : [] }));
+        } catch (err) {
+          console.warn("Failed to fetch playlist", pid, err);
         }
-      }
-
-      await Promise.all(
-        Array.from(playlistIds).map(async (pid) => {
-          try {
-            const resp = await fetch(`/api/playlist/${pid}`);
-            if (!resp.ok) return;
-            const data = await resp.json();
-            setPlaylistMap((prev) => ({
-              ...prev,
-              [pid]: Array.isArray(data.videos) ? data.videos : [],
-            }));
-          } catch (err) {
-            console.warn("Failed to fetch playlist", pid, err);
-          }
-        })
-      );
-
-      setLoading(false);
+      });
     };
-    fetchCoursesAndPlaylists();
+
+    fetchCourses();
   }, [user]);
 
   // Fetch playlist videos for all playlists shown (all devices)
