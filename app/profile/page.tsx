@@ -48,7 +48,13 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <div className="w-24 h-24 border-4 border-t-primary border-gray-200 rounded-full animate-spin mb-4"></div>
+        <p className="text-lg text-muted-foreground">Loading profile...</p>
+      </div>
+    );
   if (!firebaseUser) return <p>User not found</p>;
 
   return roleType === "admin" ? (

@@ -143,7 +143,13 @@ export default function UserProfile({ user }: UserProfileProps) {
 
   // Removed handleSaveProfile (editing now handled in EditProfile)
 
-  if (loading) return <p className="text-center text-muted-foreground mt-10">Loading profile...</p>
+  if (loading)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+        <div className="w-24 h-24 border-4 border-t-primary border-gray-200 rounded-full animate-spin mb-4"></div>
+        <p className="text-lg text-muted-foreground">Loading your profile...</p>
+      </div>
+    )
   if (error) return <p className="text-center text-destructive mt-10">{error}</p>
   if (!userData) return <p className="text-center text-muted-foreground mt-10">No profile found.</p>
 
