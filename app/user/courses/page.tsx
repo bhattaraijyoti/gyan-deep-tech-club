@@ -812,27 +812,10 @@ export default function CoursesPage() {
                                   : "hover:scale-[1.03]"
                               }
                             `}
-                            onClick={async () => {
-                              // Always set the first playlist as active and open sidebar
+                            onClick={() => {
                               const pid = uniquePlaylists[0];
-                              // Always fetch latest playlist videos from API route and set them
-                              try {
-                                const resp = await fetch(`/api/playlist/${pid}`);
-                                let vids: PlaylistVideo[] = [];
-                                if (resp.ok) {
-                                  const data = await resp.json();
-                                  vids = Array.isArray(data.videos) ? data.videos : [];
-                                }
-                                setPlaylistMap((prev) => ({ ...prev, [pid]: vids || [] }));
-                                setActivePlaylist({ courseId: course.id, playlistId: pid });
-                                const firstVideo = vids?.[0]?.videoId || "";
-                                setSelectedVideoId(firstVideo);
-                              } catch (err) {
-                                setPlaylistMap((prev) => ({ ...prev, [pid]: [] }));
-                                setActivePlaylist({ courseId: course.id, playlistId: pid });
-                                setSelectedVideoId("");
-                              }
-                              setSidebarOpen(course.id, pid, !sidebarOpenMap[`${course.id}:${pid}`] ? true : false);
+                              // Toggle sidebar only
+                              setSidebarOpen(course.id, pid, !sidebarOpenMap[`${course.id}:${pid}`]);
                             }}
                             type="button"
                             aria-label={`Open playlist`}
