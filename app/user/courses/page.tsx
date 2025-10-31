@@ -581,11 +581,7 @@ export default function CoursesPage() {
         ...doc.data(),
       })) as Course[];
 
-      // Show courses immediately
-      setCourses(courseList);
-      setLoading(false);
-
-      // Fetch playlists in background
+      // Fetch playlists immediately after fetching courses
       const playlistIds = new Set<string>();
       courseList.forEach(course => {
         course.videos?.forEach(url => {
@@ -594,16 +590,27 @@ export default function CoursesPage() {
         });
       });
 
-      Array.from(playlistIds).forEach(async (pid) => {
-        try {
-          const resp = await fetch(`/api/playlist/${pid}`);
-          if (!resp.ok) return;
-          const data = await resp.json();
-          setPlaylistMap(prev => ({ ...prev, [pid]: Array.isArray(data.videos) ? data.videos : [] }));
-        } catch (err) {
-          console.warn("Failed to fetch playlist", pid, err);
-        }
+      const playlistData = await Promise.all(
+        Array.from(playlistIds).map(async (pid) => {
+          try {
+            const resp = await fetch(`/api/playlist/${pid}`);
+            if (!resp.ok) return { pid, videos: [] };
+            const data = await resp.json();
+            return { pid, videos: Array.isArray(data.videos) ? data.videos : [] };
+          } catch {
+            return { pid, videos: [] };
+          }
+        })
+      );
+
+      const playlistMapData: Record<string, PlaylistVideo[]> = {};
+      playlistData.forEach(({ pid, videos }) => {
+        playlistMapData[pid] = videos;
       });
+
+      setPlaylistMap(playlistMapData);
+      setCourses(courseList);
+      setLoading(false);
     };
 
     fetchCourses();
@@ -715,6 +722,12 @@ export default function CoursesPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-3 sm:px-6 lg:px-10 transition-all duration-300">
+      {/* Full-screen loading overlay for page */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+          <Loader2 className="animate-spin text-white" size={60} />
+        </div>
+      )}
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <header className="text-center space-y-2 px-2">
@@ -742,20 +755,7 @@ export default function CoursesPage() {
         </div>
 
         {/* Loading / Results */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse bg-white p-4 rounded-2xl shadow border border-gray-100 h-[330px]"
-              >
-                <div className="bg-gray-200 h-40 rounded-lg mb-4" />
-                <div className="h-4 bg-gray-200 rounded mb-2 w-3/4" />
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : filteredCourses.length === 0 ? (
+        {loading ? null : filteredCourses.length === 0 ? (
           <p className="text-center text-gray-600 text-lg">
             No courses found matching your search.
           </p>
