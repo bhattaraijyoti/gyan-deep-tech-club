@@ -46,18 +46,7 @@ export default function ConditionalNavigation() {
   }, []);
 
   if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ fontSize: 12, color: "#888" }}>Loading...</span>
-      </div>
-    );
+    return <Navigation />;
   }
 
   if (!firebaseUser) {

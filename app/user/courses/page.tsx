@@ -856,6 +856,23 @@ export default function CoursesPage() {
                                       alignItems: "center",
                                       justifyContent: "center",
                                     }}
+                                    // Make the entire thumbnail area clickable to play the playlist
+                                    onClick={async () => {
+                                      // Only trigger if not already playing this playlist
+                                      if (!isThisPlaylistSelected && list.length > 0) {
+                                        setActivePlaylist({ courseId: course.id, playlistId: pid });
+                                        setSelectedVideoId(list[0].videoId);
+                                      }
+                                    }}
+                                    style={{
+                                      minHeight: "0",
+                                      width: "100%",
+                                      background: "#e5e7eb",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      cursor: (!isThisPlaylistSelected && list.length > 0) ? "pointer" : undefined,
+                                    }}
                                   >
                                     {/* If active, render player directly in the thumbnail area */}
                                     {isThisPlaylistSelected && list.length > 0 ? (
