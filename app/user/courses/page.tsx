@@ -488,7 +488,7 @@ function YouTubePlayer({
             {showPlayOverlay && !loading && (
               <button
                 type="button"
-                className="absolute inset-0 flex items-center justify-center z-20 bg-black/40 hover:bg-black/60 transition-colors duration-200 pointer-events-auto cursor-pointer"
+                className="absolute top-[35%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-20 bg-black/40 hover:bg-black/60 transition-colors duration-200 pointer-events-auto cursor-pointer"
                 style={{
                   cursor: "pointer",
                   border: "none",
@@ -526,7 +526,7 @@ function YouTubePlayer({
             )}
             {/* Loading spinner overlay, outside of containerRef */}
             {loading && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 pointer-events-auto">
+                          <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center  pointer-events-auto">
                 <Loader2 className="animate-spin text-white" size={48} />
               </div>
             )}
@@ -572,16 +572,43 @@ export default function CoursesPage() {
 
   useEffect(() => {
     if (!user) return;
-    const fetchCourses = async () => {
+    const fetchCoursesAndPlaylists = async () => {
+      setLoading(true);
       const querySnapshot = await getDocs(collection(db, "courses"));
       const courseList: Course[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Course[];
       setCourses(courseList);
+
+      // Start fetching playlists in parallel
+      const playlistIds = new Set<string>();
+      for (const course of courseList) {
+        for (const url of course.videos || []) {
+          const { playlistId } = parseYouTubeUrl(url);
+          if (playlistId) playlistIds.add(playlistId);
+        }
+      }
+
+      await Promise.all(
+        Array.from(playlistIds).map(async (pid) => {
+          try {
+            const resp = await fetch(`/api/playlist/${pid}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            setPlaylistMap((prev) => ({
+              ...prev,
+              [pid]: Array.isArray(data.videos) ? data.videos : [],
+            }));
+          } catch (err) {
+            console.warn("Failed to fetch playlist", pid, err);
+          }
+        })
+      );
+
       setLoading(false);
     };
-    fetchCourses();
+    fetchCoursesAndPlaylists();
   }, [user]);
 
   // Fetch playlist videos for all playlists shown (all devices)
@@ -718,9 +745,17 @@ export default function CoursesPage() {
 
         {/* Loading / Results */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <Loader2 className="animate-spin text-[#26667F]" size={48} />
-            <p className="text-gray-600 text-lg">Loading courses...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="animate-pulse bg-white p-4 rounded-2xl shadow border border-gray-100 h-[330px]"
+              >
+                <div className="bg-gray-200 h-40 rounded-lg mb-4" />
+                <div className="h-4 bg-gray-200 rounded mb-2 w-3/4" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filteredCourses.length === 0 ? (
           <p className="text-center text-gray-600 text-lg">
@@ -819,7 +854,7 @@ export default function CoursesPage() {
                             No playlists available for this course.
                           </p>
                         ) : (
-                          <div className="flex gap-4 overflow-x-auto justify-center py-2 -mx-3 px-3">
+                          <div className="flex flex-wrap gap-4 justify-center py-2 px-3">
                             {uniquePlaylists.map((pid, i) => {
                               const list = playlistMap[pid] || [];
                               // Use first video as thumbnail, fallback to YouTube default if missing
@@ -847,65 +882,58 @@ export default function CoursesPage() {
                                   }}
                                 >
                                   <div
-                                    className="w-full aspect-video relative rounded-2xl overflow-hidden shadow-lg"
+                                    className="w-full relative rounded-2xl overflow-hidden shadow-lg"
                                     style={{
-                                      minHeight: "0",
+                                      position: "relative",
                                       width: "100%",
-                                      background: "#e5e7eb",
+                                      aspectRatio: "16/9",
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "center",
+                                      background: "transparent",
                                     }}
-                                    // Make the entire thumbnail area clickable to play the playlist
                                     onClick={async () => {
-                                      // Only trigger if not already playing this playlist
                                       if (!isThisPlaylistSelected && list.length > 0) {
                                         setActivePlaylist({ courseId: course.id, playlistId: pid });
                                         setSelectedVideoId(list[0].videoId);
                                       }
                                     }}
-                                    style={{
-                                      minHeight: "0",
-                                      width: "100%",
-                                      background: "#e5e7eb",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      cursor: (!isThisPlaylistSelected && list.length > 0) ? "pointer" : undefined,
-                                    }}
                                   >
-                                    {/* If active, render player directly in the thumbnail area */}
                                     {isThisPlaylistSelected && list.length > 0 ? (
-                                      <YouTubePlayer
-                                        playlistId={pid}
-                                        playlistVideos={list}
-                                        initialVideoId={
-                                          selectedVideoId && list.some(v => v.videoId === selectedVideoId)
-                                            ? selectedVideoId
-                                            : list[0].videoId
-                                        }
-                                        containerId={`yt-player-thumb-${course.id}-${pid}`}
-                                        user={user}
-                                        setActivePlaylist={setActivePlaylist}
-                                        setSelectedVideoId={setSelectedVideoId}
-                                        onVideoProgressChange={(progress) => {
-                                          setPlaylistProgressMap(prev => ({
-                                            ...prev,
-                                            [pid]: progress,
-                                          }));
-                                        }}
-                                      />
+                                      <div className="absolute inset-0 w-full h-full">
+                                        <YouTubePlayer
+                                          playlistId={pid}
+                                          playlistVideos={list}
+                                          initialVideoId={
+                                            selectedVideoId && list.some(v => v.videoId === selectedVideoId)
+                                              ? selectedVideoId
+                                              : list[0].videoId
+                                          }
+                                          containerId={`yt-player-thumb-${course.id}-${pid}`}
+                                          user={user}
+                                          setActivePlaylist={setActivePlaylist}
+                                          setSelectedVideoId={setSelectedVideoId}
+                                          onVideoProgressChange={(progress) => {
+                                            setPlaylistProgressMap(prev => ({
+                                              ...prev,
+                                              [pid]: progress,
+                                            }));
+                                          }}
+                                        />
+                                      </div>
                                     ) : (
-                                      <>
-                                        {thumb && (
-                                          <img
-                                            src={thumb}
-                                            alt="Playlist thumbnail"
-                                            className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-                                            style={{ objectFit: "cover", width: "100%", height: "100%" }}
-                                          />
-                                        )}
-                                      </>
+                                      thumb && (
+                                        <img
+                                          src={thumb}
+                                          alt="Playlist thumbnail"
+                                          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                                          style={{
+                                            objectFit: "cover",
+                                            width: "100%",
+                                            height: "100%",
+                                          }}
+                                        />
+                                      )
                                     )}
                                   </div>
                                   {/* Label for number of videos, below thumbnail */}
