@@ -20,9 +20,7 @@ export function Footer() {
                 <Code2 className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">
-                  Gyan Deep
-                </h3>
+                
                 <p className="text-sm text-gray-400">Tech Club</p>
               </div>
             </Link>
@@ -106,7 +104,7 @@ export function Footer() {
             <div className="space-y-3 pt-4">
               <div className="flex items-center space-x-3 text-sm text-gray-300">
                 <Mail className="w-4 h-4" />
-                <span>contact@gyandeep.tech</span>
+                <span>contact@club.tech</span>
               </div>
               <div className="flex items-center space-x-3 text-sm text-gray-300">
                 <Phone className="w-4 h-4" />
@@ -123,7 +121,7 @@ export function Footer() {
         {/* Bottom Section */}
         <div className="border-t border-white/10 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="text-sm text-gray-400">© 2024 Gyan Deep Tech Club. All rights reserved.</div>
+            <div className="text-sm text-gray-400">© 2025 Tech Club. All rights reserved.</div>
             <div className="flex space-x-6 text-sm">
               <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">
                 Privacy Policy

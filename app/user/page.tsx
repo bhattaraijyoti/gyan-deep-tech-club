@@ -50,7 +50,7 @@ export default function UserHomePage() {
           <header className="text-center max-w-3xl mx-auto space-y-3 mb-16">
             {isMobile ? (
               <h1 className="text-5xl font-extrabold text-[#004d40] drop-shadow-md">
-                Welcome to Gyan Tech Club
+                Welcome Tech Club
               </h1>
             ) : (
               <motion.h1
@@ -59,7 +59,7 @@ export default function UserHomePage() {
                 transition={{ duration: 0.6, ease: "easeOut" }}
                 className="text-5xl font-extrabold text-[#004d40] drop-shadow-md"
               >
-                Welcome to Gyan Tech Club
+                Welcome Tech Club
               </motion.h1>
             )}
             {isMobile ? (

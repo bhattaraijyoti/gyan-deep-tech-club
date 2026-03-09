@@ -10,7 +10,7 @@ import "./globals.css"
 import ConditionalNavigation from "@/components/Navigation/ConditionalNavigation"
 
 export const metadata: Metadata = {
-  title: "Gyan Deep Tech Club - Future of Learning",
+  title: "Tech Club - Future of Learning",
   description: "Join our tech club for peer-to-peer learning, cutting-edge technology, and collaborative innovation.",
   generator: "v0.app",
 }
